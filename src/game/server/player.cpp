@@ -74,7 +74,9 @@
 #include "sendprop_priorities.h"
 #include "logic_playerproxy.h"
 #include "fogvolume.h"
-
+#include "particle_parse.h"
+#include "particles/particles.h"
+#include "physics_prop_ragdoll.h"
 
 
 #ifdef HL2_DLL
@@ -85,9 +87,9 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+extern ConVar nag;
 
-
-ConVar autoaim_max_dist( "autoaim_max_dist", "2160" ); // 2160 = 180 feet
+ConVar autoaim_max_dist( "autoaim_max_dist", "0" ); // 2160 = 180 feet
 ConVar autoaim_max_deflect( "autoaim_max_deflect", "0.99" );
 
 ConVar	spec_freeze_time( "spec_freeze_time", "4.0", FCVAR_CHEAT | FCVAR_REPLICATED, "Time spend frozen in observer freeze cam." );
@@ -95,7 +97,9 @@ ConVar	spec_freeze_traveltime( "spec_freeze_traveltime", "0.4", FCVAR_CHEAT | FC
 
 ConVar sv_bonus_challenge( "sv_bonus_challenge", "0", FCVAR_REPLICATED, "Set to values other than 0 to select a bonus map challenge type." );
 
-ConVar sv_regeneration_wait_time ("sv_regeneration_wait_time", "1.0", FCVAR_REPLICATED );
+ConVar sv_regeneration ("sv_regeneration", "1", FCVAR_REPLICATED );
+ConVar sv_regeneration_wait_time ("sv_regeneration_wait_time", "6.0", FCVAR_REPLICATED );
+ConVar sv_regeneration_rate ("sv_regeneration_rate", "5.0", FCVAR_REPLICATED );
 
 static ConVar old_armor( "player_old_armor", "0" );
 
@@ -146,6 +150,7 @@ extern CServerGameDLL g_ServerGameDLL;
 
 extern bool		g_fDrawLines;
 int				gEvilImpulse101;
+float     m_fRegenRemander;
 
 bool gInitHUD = true;
 
@@ -854,12 +859,12 @@ void CBasePlayer::DeathSound( const CTakeDamageInfo &info )
 	{
 		EmitSound( "Player.Death" );
 	}
-
+	/*
 	// play one of the suit death alarms
 	if ( IsSuitEquipped() )
 	{
 		UTIL_EmitGroupnameSuit(edict(), "HEV_DEAD");
-	}
+	}*/
 }
 
 // override takehealth
@@ -968,14 +973,43 @@ void CBasePlayer::TraceAttack( const CTakeDamageInfo &inputInfo, const Vector &v
 			break;
 		}
 
-#ifdef HL2_EPISODIC
-		// If this damage type makes us bleed, then do so
-		bool bShouldBleed = !g_pGameRules->Damage_ShouldNotBleed( info.GetDamageType() );
-		if ( bShouldBleed )
-#endif
+		CBaseCombatWeapon *pWeapon = GetActiveWeapon();
+		if(pWeapon){
+			if( FClassnameIs( pWeapon, "weapon_epee" ) && !(info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION | DMG_CLUB | DMG_SHOCK | DMG_BURN)) ){
+				//g_pEffects->Ricochet( info.GetDamagePosition(), info.GetDamagePosition()+ RandomVector( -4.0f, 4.0f ) );
+				//g_pEffects->Sparks( info.GetDamagePosition(), 1, 2 );
+				//UTIL_Smoke( info.GetDamagePosition(), random->RandomInt( 10, 15 ), 10 );
+				QAngle angles;
+				VectorAngles( ptr->endpos, angles );
+				DispatchParticleEffect( "sword_impact", ptr->endpos, angles );
+			}
+		}
+
+		//Particles effects
+		if( (m_ArmorValue>0) && !(info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION | DMG_CLUB | DMG_SHOCK | DMG_BURN)) )
 		{
-			SpawnBlood(ptr->endpos, vecDir, BloodColor(), info.GetDamage());// a little surface blood.
-			TraceBleed( info.GetDamage(), vecDir, ptr, info.GetDamageType() );
+			QAngle angles;
+			VectorAngles( ptr->endpos, angles );
+			DispatchParticleEffect( "shield_impact", ptr->endpos /*+ RandomVector( -4.0f, 4.0f )*/, angles );
+			if ( random->RandomInt( 0, 1 ) == 0 )
+			{
+				CBaseEntity *pTrail = CreateEntityByName( "sparktrail" );
+				pTrail->SetOwnerEntity( this );
+				pTrail->Spawn();
+			}
+			EmitSound( "NPC.ShieldHit" );
+		}
+		else
+		{
+	#ifdef HL2_EPISODIC
+			// If this damage type makes us bleed, then do so
+			bool bShouldBleed = !g_pGameRules->Damage_ShouldNotBleed( info.GetDamageType() );
+			if ( bShouldBleed )
+	#endif
+			{
+				SpawnBlood(ptr->endpos, vecDir, BloodColor(), info.GetDamage());// a little surface blood.
+				TraceBleed( info.GetDamage(), vecDir, ptr, info.GetDamageType() );
+			}
 		}
 
 		AddMultiDamage( info, this );
@@ -1041,8 +1075,10 @@ void CBasePlayer::DamageEffect(float flDamage, int fDamageType)
 #define OLD_ARMOR_BONUS  0.5	// Each Point of Armor is work 1/x points of health
 
 // New values
-#define ARMOR_RATIO	0.2
-#define ARMOR_BONUS	1.0
+#define ARMOR_RATIO	0.05
+#define ARMOR_BONUS	0.2
+
+#define SWORD_ARMOR_RATIO 0.4
 
 //---------------------------------------------------------
 //---------------------------------------------------------
@@ -1097,6 +1133,92 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 	{
 		if( !ShouldTakeDamageInCommentaryMode( info ) )
 			return 0;
+	}
+
+	CBasePlayer *pPlayer = ToBasePlayer( this );
+
+	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
+	if(pWeapon){
+		if( FClassnameIs( pWeapon, "weapon_epee" )  && !(info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION | DMG_CLUB | DMG_SHOCK | DMG_BURN)) ){
+			info.SetDamage( info.GetDamage() * SWORD_ARMOR_RATIO ); //60% more hard to kill with a sword
+		}
+	}
+	
+	if( (m_ArmorValue<=0) /*&& (info.GetDamageType() & (DMG_FALL | DMG_DROWN | DMG_POISON | DMG_RADIATION | DMG_CLUB | DMG_SHOCK | DMG_BURN))*/ )
+	{
+		if( info.GetDamage() > 75.0f )
+		{
+			color32 red = {0,0,0,225};
+			UTIL_ScreenFade( this, red, 2.4f, 0.3f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -32.0, 32.0 ), random->RandomFloat( -8.0, 8.0 ), 0 ) );
+		}
+		if( info.GetDamage() > 50.0f )
+		{
+			color32 red = {0,0,0,175};
+			UTIL_ScreenFade( this, red, 1.2f, 0.2f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -16.0, 16.0 ), random->RandomFloat( -4.0, 4.0 ), 0 ) );
+		}
+		else if( info.GetDamage() > 25.0f )
+		{
+			color32 red = {0,0,0,120};
+			UTIL_ScreenFade( this, red, 0.6f, 0.1f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -8.0, 8.0 ), random->RandomFloat( -2.0, 2.0 ), 0 ) );
+		}
+		else if( info.GetDamage() > 15.0f )
+		{
+			color32 red = {0,0,0,90};
+			UTIL_ScreenFade( this, red, 0.3f, 0.05f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -4.0, 4.0 ), random->RandomFloat( -1.0, 1.0 ), 0 ) );
+		}
+		else
+		{
+			color32 red = {0,0,0,60};
+			UTIL_ScreenFade( this, red, 0.1f, 0.0f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -2.0, 2.0 ), random->RandomFloat( -0.5, 0.5 ), 0 ) );
+		}
+	}
+	else
+	{
+		if( info.GetDamage() > 75.0f )
+		{
+			color32 blue = {0,0,150,100};
+			UTIL_ScreenFade( this, blue, 4.0f, 0.3f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -10.0, 10.0 ), random->RandomFloat( -2.0, 2.0 ), 0 ) );
+		}
+		if( info.GetDamage() > 50.0f )
+		{
+			color32 blue = {0,0,120,80};
+			UTIL_ScreenFade( this, blue, 2.0f, 0.2f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -3.0, 3.0 ), random->RandomFloat( -1.0, 1.0 ), 0 ) );
+		}
+		else if( info.GetDamage() > 25.0f )
+		{
+			color32 blue = {0,0,120,60};
+			UTIL_ScreenFade( this, blue, 1.0f, 0.1f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -1.0, 1.0 ), random->RandomFloat( -0.5, 0.5 ), 0 ) );
+		}
+		else if( info.GetDamage() > 15.0f )
+		{
+			color32 blue = {0,0,120,40};
+			UTIL_ScreenFade( this, blue, 0.5f, 0.05f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -0.5, 0.5 ), random->RandomFloat( -0.1, 0.1 ), 0 ) );
+		}
+		else
+		{
+			color32 blue = {0,0,120,20};
+			UTIL_ScreenFade( this, blue, 0.2f, 0.0f, FFADE_IN );
+			//if ( pPlayer != NULL )
+				//pPlayer->ViewPunch( QAngle( random->RandomFloat( -0.1, 0.1 ), random->RandomFloat( -0.05, 0.05 ), 0 ) );
+		}
 	}
 
 	if ( GetFlags() & FL_GODMODE )
@@ -1258,7 +1380,7 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 		// DMG_FREEZE
 		// DMG_BLAST
 		// DMG_SHOCK
-
+	/*
 	m_bitsDamageType |= bitsDamage; // Save this so we can report it to the client
 	m_bitsHUDDamage = -1;  // make sure the damage bits get resent
 
@@ -1354,7 +1476,8 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 			ffound = true;
 		}
 	}
-
+	*/
+/*
 	float flPunch = -2;
 
 	if( hl2_episodic.GetBool() && info.GetAttacker() && !FInViewCone( info.GetAttacker() ) )
@@ -1366,7 +1489,7 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 	}
 
 	m_Local.m_vecPunchAngle.SetX( flPunch );
-
+	*/
 	if (fTookDamage && !ftrivial && fmajor && flHealthPrev >= 75) 
 	{
 		// first time we take major damage...
@@ -1422,8 +1545,8 @@ int CBasePlayer::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 // Input  : &info - 
 //			damageAmount - 
 //-----------------------------------------------------------------------------
-#define MIN_SHOCK_AND_CONFUSION_DAMAGE	30.0f
-#define MIN_EAR_RINGING_DISTANCE		240.0f  // 20 feet
+#define MIN_SHOCK_AND_CONFUSION_DAMAGE	25.0f
+#define MIN_EAR_RINGING_DISTANCE		300.0f  // 20 feet
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -2340,6 +2463,7 @@ bool CBasePlayer::SetObserverMode(int mode )
 			break;
 			
 		case OBS_MODE_ROAMING :
+		case OBS_MODE_FREEZECAM :
 			SetFOV( this, 0 );	// Reset FOV
 			SetObserverTarget( m_hObserverTarget );
 			SetViewOffset( vec3_origin );
@@ -2838,7 +2962,8 @@ bool CBasePlayer::CanPickupObject( CBaseEntity *pObject, float massLimit, float 
 	if ( pObject == NULL )
 		return false;
 
-
+	if ( dynamic_cast<CRagdollProp*>(pObject) )
+		return true;
 	
 	//Must move with physics
 	if ( pObject->GetMoveType() != MOVETYPE_VPHYSICS )
@@ -4098,7 +4223,7 @@ Things powered by the battery
 
 // if in range of radiation source, ping geiger counter
 
-#define GEIGERDELAY 0.25
+#define GEIGERDELAY 0.2
 
 void CBasePlayer::UpdateGeigerCounter( void )
 {
@@ -4606,19 +4731,27 @@ void CBasePlayer::PostThink()
 #endif
 
 	// Regenerate heath
-	if ( IsAlive() && GetHealth() < GetMaxHealth() && (GlobalEntity_GetState("player_regenerates_health") != GLOBAL_OFF) )
+	if ( IsAlive() && GetHealth() < GetMaxHealth() && (sv_regeneration.GetInt() == 1) )
 	{
 		// Color to overlay on the screen while the player is taking damage
-		color32 hurtScreenOverlay = {64,0,0,64};
-
+		color32 hurtScreenOverlay = {80,0,0,64};
+ 
 		if ( gpGlobals->curtime > m_fTimeLastHurt + sv_regeneration_wait_time.GetFloat() )
 		{
-			TakeHealth( 1, DMG_GENERIC );
+					//Regenerate based on rate, and scale it by the frametime
+			m_fRegenRemander += sv_regeneration_rate.GetFloat() * gpGlobals->frametime;
+ 
+			if(m_fRegenRemander >= 1)
+			{
+				TakeHealth( m_fRegenRemander, DMG_GENERIC );
+				m_fRegenRemander = 0;
+			}
 		}
 		else
 		{
-			UTIL_ScreenFade( this, hurtScreenOverlay, 1.0f, 0.1f, FFADE_IN|FFADE_PURGE );
-		}
+			if ( IsAlive() && GetHealth() < GetMaxHealth()/4  )
+					UTIL_ScreenFade( this, hurtScreenOverlay, 0.5f, 0.1f, FFADE_IN|FFADE_PURGE );
+		}	
 	}
 }
 
@@ -5101,6 +5234,133 @@ void CBasePlayer::Precache( void )
 	PrecacheParticleSystem( "slime_splash_02" );
 	PrecacheParticleSystem( "slime_splash_03" );
 
+	PrecacheParticleSystem( "zombies_headshot_blood" );
+	PrecacheParticleSystem( "combines_headshot_blood" );
+	PrecacheParticleSystem( "impact_antlion" );
+	PrecacheParticleSystem( "impact_concrete" );
+	PrecacheParticleSystem( "impact_dirt" );
+	PrecacheParticleSystem( "impact_metal" );
+	PrecacheParticleSystem( "impact_computer" );
+	PrecacheParticleSystem( "impact_wood" );
+	PrecacheParticleSystem( "impact_glass" );
+	PrecacheParticleSystem( "red_blood_smoke" );
+	PrecacheParticleSystem( "metal_impact_bullet" );
+	PrecacheParticleSystem( "metal_spark_shower" );
+	PrecacheParticleSystem( "shield_impact" );
+	PrecacheParticleSystem( "warp_shield_impact" );
+	//PrecacheParticleSystem( "blood_impact" );
+	PrecacheParticleSystem( "blood_impact_red_dead" );
+	PrecacheParticleSystem( "blood_impact_zombie_01" );
+	PrecacheParticleSystem( "Humah_Explode_blood" );
+	PrecacheParticleSystem( "blood_human_semiexplode" );
+	PrecacheParticleSystem( "blood_gibs" );
+	PrecacheParticleSystem( "headshot_spray" );
+	PrecacheParticleSystem( "floor_explosion" );
+	PrecacheParticleSystem( "underwater_explosion" );
+	PrecacheParticleSystem( "rain_splash" );
+	PrecacheParticleSystem( "blood_impact_yellow_01" );
+	PrecacheParticleSystem( "command_goto_valid" );
+	PrecacheParticleSystem( "zombies_headshot_blood_melee" );
+	
+	PrecacheParticleSystem( "muzzle_ar2" );
+	PrecacheParticleSystem( "muzzle_smg1" );
+	PrecacheParticleSystem( "muzzle_pistol" );
+	PrecacheParticleSystem( "muzzle_shotgun" );
+
+	PrecacheParticleSystem( "muzzle_tact_shotgun" );
+	PrecacheParticleSystem( "muzzle_tact_smg1" );
+	PrecacheParticleSystem( "muzzle_tact_pistol" );
+	PrecacheParticleSystem( "muzzle_tact_ar2" );
+	PrecacheParticleSystem( "muzzle_tact_sniper" );
+
+	PrecacheParticleSystem( "muzzle_cannon" );
+
+	PrecacheParticleSystem( "muzzle_tact_smoke_medium" );
+	PrecacheParticleSystem( "weapon_muzzle_smoke" );
+
+	PrecacheParticleSystem( "tracer_pistol" );
+	PrecacheParticleSystem( "tracer_smg1" );
+	PrecacheParticleSystem( "tracer_shotgun" );
+	PrecacheParticleSystem( "tracer_ar2" );
+	PrecacheParticleSystem( "tracer_energy" );
+	PrecacheParticleSystem( "tracer_bullets" );
+	PrecacheParticleSystem( "tracer_bullet" );
+	PrecacheParticleSystem( "tracer_bullet_whiz" );
+	PrecacheParticleSystem( "tracer_sniper" );
+
+	PrecacheParticleSystem( "balle_explosive" );
+	PrecacheParticleSystem( "balle_incendiaire" );
+	PrecacheParticleSystem( "balle_50BGM" );
+	PrecacheParticleSystem( "balle_50BGMHEI" );
+	PrecacheParticleSystem( "balle_tracer_red" );
+	PrecacheParticleSystem( "balle_tracer_green" );
+	PrecacheParticleSystem( "balle_AP" );
+
+	PrecacheParticleSystem( "electrical_impact" );
+	PrecacheParticleSystem( "sword_impact" );
+
+	PrecacheParticleSystem( "bullet_tracer_subs" );
+	PrecacheParticleSystem( "bullet_tracer_supers" );
+	PrecacheParticleSystem( "bullet_tracer_sound" );
+	PrecacheParticleSystem( "bullet_tracer_red" );
+	PrecacheParticleSystem( "bullet_tracer_green" );
+	PrecacheParticleSystem( "bullet_tracer_fire" );
+	PrecacheParticleSystem( "bullet_tracer_big" );
+	PrecacheParticleSystem( "bullet_tracer_bigfire" );
+	PrecacheParticleSystem( "bullet_tracer_electrical" );
+
+	PrecacheParticleSystem( "func_breakable_glass" );
+	PrecacheParticleSystem( "func_breakable_wood" );
+	PrecacheParticleSystem( "func_breakable_wood_smoke" );
+	PrecacheParticleSystem( "func_breakable_metal" );
+	PrecacheParticleSystem( "func_breakable_rock" );
+	PrecacheParticleSystem( "func_breakable_flesh" );
+	PrecacheParticleSystem( "func_breakable_food" );
+
+	PrecacheScriptSound( "NPC.Headshot" );
+	PrecacheScriptSound( "NPC.HeadshotGore" );
+	PrecacheScriptSound( "NPC.ExplodeGore" );
+	PrecacheScriptSound( "Flesh.ImpactSoft" );
+	PrecacheScriptSound( "NPC.StickyGibSplat" );
+	PrecacheScriptSound( "NPC.BloodSpray" );
+	PrecacheScriptSound( "NPC.BloodMove" );
+	PrecacheScriptSound( "NPC.ShieldDown" );
+	PrecacheScriptSound( "NPC.ShieldHit" );
+
+	PrecacheScriptSound( "HL2Player.DoubleJump" );
+	PrecacheScriptSound( "HL2Player.WallJump" );
+
+	PrecacheModel("models/humans/charple03.mdl");
+	PrecacheModel("models/gibs/pgib_p1.mdl");
+	PrecacheModel("models/gibs/pgib_p2.mdl");
+	PrecacheModel("models/gibs/pgib_p3.mdl");
+	PrecacheModel("models/gibs/pgib_p4.mdl");
+	PrecacheModel("models/gibs/pgib_p5.mdl");
+	PrecacheModel("models/zombie/zombie1_legs.mdl");
+	PrecacheModel("models/gibs/hgibs_jaw.mdl");
+	PrecacheModel("models/gibs/leg.mdl");
+	PrecacheModel("models/gibs/hgibs_rib.mdl");
+	PrecacheModel("models/gibs/hgibs_spine.mdl");
+	PrecacheModel("models/gibs/hgibs_scapula.mdl");
+	PrecacheModel( "models/gibs/Fast_Zombie_Torso.mdl");
+	PrecacheModel( "models/zombie/classic_legs.mdl" );
+
+	PrecacheModel("models/props_debris/impact_debris1.mdl");
+	PrecacheModel("models/props_debris/impact_debris2.mdl");
+	PrecacheModel("models/props_debris/impact_debris3.mdl");
+	PrecacheModel("models/props_debris/impact_debris4.mdl");
+
+	PrecacheModel( "models/gore/stickyg.mdl" );
+	
+	PrecacheMaterial( "shaders/acsmod_bokeh_dof" );
+	PrecacheMaterial( "shaders/acsmod_salete" );
+	PrecacheMaterial( "shaders/acsmod_vertical" );
+	PrecacheMaterial( "shaders/acsmod_hurt" );
+	PrecacheMaterial( "shaders/acsmod_godrays" );
+
+	PrecacheMaterial( "decals/explode/expl1" );
+	PrecacheMaterial( "decals/explode/expl2" );
+	PrecacheMaterial( "decals/explode/expl3" );
 
 	// in the event that the player JUST spawned, and the level node graph
 	// was loaded, fix all of the node graph pointers before the game starts.
@@ -5665,8 +5925,8 @@ void CBloodSplat::Think( void )
 {
 	trace_t	tr;	
 	
-	if ( g_Language.GetInt() != LANGUAGE_GERMAN )
-	{
+	//if ( g_Language.GetInt() != LANGUAGE_GERMAN )
+	//{
 		CBasePlayer *pPlayer;
 		pPlayer = ToBasePlayer( GetOwnerEntity() );
 
@@ -5676,7 +5936,7 @@ void CBloodSplat::Think( void )
 			MASK_SOLID_BRUSHONLY, pPlayer, COLLISION_GROUP_NONE, & tr);
 
 		UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
-	}
+	//}
 	UTIL_Remove( this );
 }
 
@@ -5716,6 +5976,10 @@ CBaseEntity	*CBasePlayer::GiveNamedItem( const char *pszName, int iSubType, bool
 	if ( pent != NULL && !(pent->IsMarkedForDeletion()) ) 
 	{
 		pent->Touch( this );
+	}
+	if (this->BumpWeapon(pWeapon))
+	{
+		pWeapon->OnPickedUp( this );
 	}
 
 	return pent;
@@ -6181,47 +6445,66 @@ void CBasePlayer::CheatImpulseCommands( int iImpulse )
 		gEvilImpulse101 = true;
 
 		EquipSuit();
+		// Give the player everything!
+		if(nag.GetBool())
+		{
+			GiveAmmo( 999,	"Pellet_S");
+			GiveAmmo( 999,	"Pellet_M");
+			GiveAmmo( 999,	"Pellet_L");
+			GiveAmmo( 999,	"Pellet_XL");
+			GiveAmmo( 99,	"Arrow");
+			GiveAmmo( 99,	"CrossbowBolt");
+			GiveAmmo( 999,	"Pellet_M_HE");
+			GiveAmmo( 999,	"Pellet_M_I");
+			GiveAmmo( 999,	"Pellet_SM");
+			GiveAmmo( 999,	"Pellet_L_HE");
+			GiveAmmo( 999,	"Fireball");
 
-
-
-			// Give the player everything!
-			GiveAmmo( 255,	"Pistol");
-			GiveAmmo( 255,	"AR2");
-			GiveAmmo( 5,	"AR2AltFire");
-			GiveAmmo( 255,	"SMG1");
-			GiveAmmo( 255,	"Buckshot");
-			GiveAmmo( 3,	"smg1_grenade");
-			GiveAmmo( 3,	"rpg_round");
-			GiveAmmo( 5,	"grenade");
-			GiveAmmo( 32,	"357" );
-			GiveAmmo( 16,	"XBowBolt" );
-			#ifdef HL2_EPISODIC
-				GiveAmmo( 5,	"Hopwire" );
-			#endif
+			GiveNamedItem( "weapon_pistolet" );
+			GiveNamedItem( "weapon_rifle" );
+			GiveNamedItem( "weapon_blunderbuss" );
+			GiveNamedItem( "weapon_musket" );
+			GiveNamedItem( "weapon_cannon" );
+			GiveNamedItem( "weapon_epee" );
+		}else{
+			GiveAmmo( 999,	"Pistol");
+			GiveAmmo( 999,	"AR2");
+			//GiveAmmo( 5,	"AR2AltFire");
+			GiveAmmo( 999,	"SMG1");
+			GiveAmmo( 999,	"SMG2");
+			GiveAmmo( 999,	"Buckshot");
+			GiveAmmo( 99,	"smg1_grenade");
+			GiveAmmo( 99,	"rpg_round");
+			GiveAmmo( 99,	"grenade");
+			GiveAmmo( 999,	"357" );
+			GiveAmmo( 999,	"SniperRound" );
+			GiveAmmo( 999,	"XBowBolt" );
 
 			GiveNamedItem( "weapon_smg1" );
+			GiveNamedItem( "weapon_smg2" );
 			GiveNamedItem( "weapon_frag" );
 			GiveNamedItem( "weapon_crowbar" );
 			GiveNamedItem( "weapon_pistol" );
 			GiveNamedItem( "weapon_ar2" );
 			GiveNamedItem( "weapon_shotgun" );
-			GiveNamedItem( "weapon_physcannon" );
-
-				GiveNamedItem( "weapon_bugbait" );
-
+			//GiveNamedItem( "weapon_physcannon" );
+			//GiveNamedItem( "weapon_bugbait" );
 			GiveNamedItem( "weapon_rpg" );
 			GiveNamedItem( "weapon_357" );
 			GiveNamedItem( "weapon_crossbow" );
-
-
-
-
+			GiveNamedItem( "weapon_sniper" );
+		}
 
 		if ( GetHealth() < 100 )
 		{
 			TakeHealth( 25, DMG_GENERIC );
 		}
 		
+		Msg( "Hi Cheater ! Hope you enjoy the game before cheating :)\n");
+		DevMsg( "Hi Advanced Cheater ! Why are you in dev mode ?\n");
+
+		CGib::SpawnRandomGibs( this, 10, GIB_HUMAN );
+
 		gEvilImpulse101		= false;
 
 		break;
@@ -6978,6 +7261,8 @@ bool CBasePlayer::ShouldAutoaim( void )
 	if ( gpGlobals->maxClients > 1 )
 		return false;
 
+	return false; //Nag mod
+
 	// autoaiming is only for easy and medium skill
 	return ( IsX360() || !g_pGameRules->IsSkillLevel(SKILL_HARD) );
 }
@@ -7387,8 +7672,17 @@ void CBasePlayer::ResetAutoaim( void )
 // ==========================================================================
 //	> Weapon stuff
 // ==========================================================================
-
-
+/*
+//-----------------------------------------------------------------------------
+// Purpose: Override base class, player can always use weapon
+// Input  : A weapon
+// Output :	true or false
+//-----------------------------------------------------------------------------
+bool CBasePlayer::Weapon_CanUse( CBaseCombatWeapon *pWeapon )
+{
+	return true;
+}
+*/
 //-----------------------------------------------------------------------------
 // Purpose: Override to clear dropped weapon from the hud
 //-----------------------------------------------------------------------------

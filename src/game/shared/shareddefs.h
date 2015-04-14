@@ -91,12 +91,12 @@ public:
 #define VEC_DEAD_VIEWHEIGHT	g_pGameRules->GetViewVectors()->m_vDeadViewHeight
 
 
-#define WATERJUMP_HEIGHT			8
+#define WATERJUMP_HEIGHT			10
 
-#define MAX_CLIMB_SPEED		200
+#define MAX_CLIMB_SPEED		120
 
 
-	#define TIME_TO_DUCK_MSECS		400
+#define TIME_TO_DUCK_MSECS		300
  
 #define TIME_TO_UNDUCK_MSECS		200
 
@@ -119,8 +119,8 @@ inline float FractionUnDucked( int msecs )
 
 #define WEAPON_NOCLIP			-1	// clip sizes set to this tell the weapon it doesn't use a clip
 
-#define	MAX_AMMO_TYPES	32		// ???
-#define MAX_AMMO_SLOTS  32		// not really slots
+#define	MAX_AMMO_TYPES	64		// ???
+#define MAX_AMMO_SLOTS  64		// not really slots
 
 #define HUD_PRINTNOTIFY		1
 #define HUD_PRINTCONSOLE	2
@@ -158,7 +158,7 @@ inline float FractionUnDucked( int msecs )
 #define bits_SUIT_DEVICE_FLASHLIGHT	0x00000002
 #define bits_SUIT_DEVICE_BREATHER	0x00000004
 
-#define MAX_SUIT_DEVICES			3
+#define MAX_SUIT_DEVICES			9
 
 
 //===================================================================================================================
@@ -173,10 +173,12 @@ inline float FractionUnDucked( int msecs )
 //This is ok since MAX_PLAYERS is used for code specific things like arrays and loops, but it doesn't really means that this is the max number of players allowed
 //Since this is decided by the gamerules (and it can be whatever number as long as its less than MAX_PLAYERS).
 
-	#define MAX_PLAYERS				33  // Absolute max players supported
+#define MAX_PLAYERS				33  // Absolute max players supported
 
 
 #define MAX_PLACE_NAME_LENGTH		18
+
+#define MAX_FOV						90
 
 //===================================================================================================================
 // Team Defines
@@ -307,11 +309,11 @@ enum PLAYER_ANIM
 // HL2 has 600 gravity by default
 // NOTE: The discrete ticks can have quantization error, so these numbers are biased a little to
 // make the heights more exact
-#define PLAYER_FATAL_FALL_SPEED		922.5f // approx 60 feet sqrt( 2 * gravity * 60 * 12 )
-#define PLAYER_MAX_SAFE_FALL_SPEED	526.5f // approx 20 feet sqrt( 2 * gravity * 20 * 12 )
+#define PLAYER_FATAL_FALL_SPEED		1200.0f // approx 60 feet sqrt( 2 * gravity * 60 * 12 )
+#define PLAYER_MAX_SAFE_FALL_SPEED	600.0f // approx 20 feet sqrt( 2 * gravity * 20 * 12 )
 #define PLAYER_LAND_ON_FLOATING_OBJECT	173 // Can fall another 173 in/sec without getting hurt
-#define PLAYER_MIN_BOUNCE_SPEED		173
-#define PLAYER_FALL_PUNCH_THRESHOLD 303.0f // won't punch player's screen/make scrape noise unless player falling at least this fast - at least a 76" fall (sqrt( 2 * g * 76))
+#define PLAYER_MIN_BOUNCE_SPEED		100
+#define PLAYER_FALL_PUNCH_THRESHOLD 200.0f // won't punch player's screen/make scrape noise unless player falling at least this fast - at least a 76" fall (sqrt( 2 * g * 76))
 #else
 #define PLAYER_FATAL_FALL_SPEED		1024 // approx 60 feet
 #define PLAYER_MAX_SAFE_FALL_SPEED	580 // approx 20 feet
@@ -448,6 +450,8 @@ typedef enum
 #define COLOR_YELLOW	Color(255, 178, 0, 255)
 #define COLOR_GREEN		Color(153, 255, 153, 255)
 #define COLOR_GREY		Color(204, 204, 204, 255)
+#define COLOR_WHITE		Color(255, 255, 255, 255)
+#define COLOR_BLACK		Color(0, 0, 0, 255)
 
 // All NPCs need this data
 enum
@@ -561,7 +565,7 @@ const int FX_BLOODSPRAY_CLOUD	= 0x04;
 const int FX_BLOODSPRAY_ALL		= 0xFF;
 
 //-----------------------------------------------------------------------------
-#define MAX_SCREEN_OVERLAYS		10
+#define MAX_SCREEN_OVERLAYS		20
 
 // These are the types of data that hang off of CBaseEntities and the flag bits used to mark their presence
 enum
@@ -606,13 +610,14 @@ struct FireBulletsInfo_t
 		m_iShots = 1;
 		m_vecSpread.Init( 0, 0, 0 );
 		m_flDistance = 8192;
-		m_iTracerFreq = 4;
+		m_iTracerFreq = 1;
 		m_flDamage = 0.0f;
 		m_flPlayerDamage = 0.0f;
 		m_pAttacker = NULL;
 		m_nFlags = 0;
 		m_pAdditionalIgnoreEnt = NULL;
 		m_flDamageForceScale = 1.0f;
+		m_bAlreadyInterract = false;
 
 #ifdef _DEBUG
 		m_iAmmoType = -1;
@@ -630,7 +635,7 @@ struct FireBulletsInfo_t
 		m_vecSpread = vecSpread;
 		m_flDistance = flDistance;
 		m_iAmmoType = nAmmoType;
-		m_iTracerFreq = 4;
+		m_iTracerFreq = 1;
 		m_flDamage = 0;
 		m_flPlayerDamage = 0;
 		m_pAttacker = NULL;
@@ -638,6 +643,7 @@ struct FireBulletsInfo_t
 		m_pAdditionalIgnoreEnt = NULL;
 		m_flDamageForceScale = 1.0f;
 		m_bPrimaryAttack = bPrimaryAttack;
+		m_bAlreadyInterract = false;
 	}
 
 	int m_iShots;
@@ -654,6 +660,7 @@ struct FireBulletsInfo_t
 	CBaseEntity *m_pAttacker;
 	CBaseEntity *m_pAdditionalIgnoreEnt;
 	bool m_bPrimaryAttack;
+	bool m_bAlreadyInterract;
 };
 
 //-----------------------------------------------------------------------------
