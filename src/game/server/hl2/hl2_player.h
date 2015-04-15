@@ -63,9 +63,9 @@ public:
 	int		GetDeviceID( void ) const { return m_bitsDeviceID; }
 	float	GetDeviceDrainRate( void ) const
 	{	
-		if( g_pGameRules->GetSkillLevel() == SKILL_EASY && hl2_episodic.GetBool() && !(GetDeviceID()&bits_SUIT_DEVICE_SPRINT) )
-			return m_flDrainRate * 0.5f;
-		else
+		//if( g_pGameRules->GetSkillLevel() == SKILL_HARD && (GetDeviceID()&bits_SUIT_DEVICE_SPRINT) )
+		//	return m_flDrainRate + 1.5f;
+		//else
 			return m_flDrainRate; 
 	}
 };
@@ -91,6 +91,9 @@ public:
 	DECLARE_DATADESC();
 
 	virtual void		CreateCorpse( void ) { CopyToBodyQue( this ); };
+
+	// Tracks our ragdoll entity.
+	CNetworkHandle( CBaseEntity, m_hRagdoll );	// networked entity handle 
 
 	virtual void		Precache( void );
 	virtual void		Spawn(void);
@@ -180,6 +183,8 @@ public:
 	bool IsZooming( void );
 	void CheckSuitZoom( void );
 
+	void SetAnimation( PLAYER_ANIM playerAnim );
+
 	virtual void				FlashlightTurnOn( void );
 	virtual void				FlashlightTurnOff( void );
 	virtual CBaseEntity	*CHL2_Player::GetHeldObject( void );
@@ -204,6 +209,7 @@ public:
 	const impactdamagetable_t &GetPhysicsImpactDamageTable();
 	virtual int			OnTakeDamage( const CTakeDamageInfo &info );
 	virtual int			OnTakeDamage_Alive( const CTakeDamageInfo &info );
+	virtual void		CreateRagdollEntity();
 	virtual void		OnDamagedByExplosion( const CTakeDamageInfo &info );
 	bool				ShouldShootMissTarget( CBaseCombatCharacter *pAttacker );
 
@@ -380,7 +386,26 @@ private:
 	friend class CHL2GameMovement;
 };
 
+class CHL2Ragdoll : public CBaseAnimatingOverlay
+{
+public:
+	DECLARE_CLASS( CHL2Ragdoll, CBaseAnimatingOverlay );
+	DECLARE_SERVERCLASS();
 
+	// Transmit ragdolls to everyone.
+	virtual int UpdateTransmitState()
+	{
+		return SetTransmitState( FL_EDICT_ALWAYS );
+	}
+
+public:
+	// In case the client has the player entity, we transmit the player index.
+	// In case the client doesn't have it, we transmit the player's model index, origin, and angles
+	// so they can create a ragdoll in the right place.
+	CNetworkHandle( CBaseEntity, m_hPlayer );	// networked entity handle 
+	CNetworkVector( m_vecRagdollVelocity );
+	CNetworkVector( m_vecRagdollOrigin );
+};
 //-----------------------------------------------------------------------------
 // FIXME: find a better way to do this
 // Switches us to a physics damage table that caps the max damage.

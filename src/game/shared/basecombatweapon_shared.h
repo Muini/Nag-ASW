@@ -254,16 +254,20 @@ public:
 	virtual int				GetBulletType( void );
 	virtual const Vector&	GetBulletSpread( void );
 	virtual Vector			GetBulletSpread( WeaponProficiency_t proficiency )		{ return GetBulletSpread(); }
+	virtual float			GetSpeedMalus( void );
 	virtual float			GetSpreadBias( WeaponProficiency_t proficiency )			{ return 1.0; }
 	virtual float			GetFireRate( void );
 	virtual int				GetMinBurst() { return 1; }
 	virtual int				GetMaxBurst() { return 1; }
 	virtual float			GetMinRestTime() { return 0.3; }
-	virtual float			GetMaxRestTime() { return 0.6; }
+	virtual float			GetMaxRestTime() { return 1.2; }
 	virtual int				GetRandomBurst() { return random->RandomInt( GetMinBurst(), GetMaxBurst() ); }
 	virtual void			WeaponSound( WeaponSound_t sound_type, float soundtime = 0.0f );
 	virtual void			StopWeaponSound( WeaponSound_t sound_type );
 	virtual const WeaponProficiencyInfo_t *GetProficiencyValues();
+
+	void					SetBulletSpreadSize( float size ) { m_flBulletSpreadSize = size; }
+	float					GetBulletSpreadSize() { GetBulletSpread(); return m_flBulletSpreadSize; }
 
 	// Autoaim
 	virtual float			GetMaxAutoAimDeflection() { return 0.99f; }
@@ -545,6 +549,8 @@ public:
 
 	bool					SetIdealActivity( Activity ideal );
 	void					MaintainIdealActivity( void );
+
+	CNetworkVar( float, m_flBulletSpreadSize ); //Ajout de cette valeur pour mettre à jour le crosshair
 
 private:
 	int						m_nIdealSequence;

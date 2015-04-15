@@ -76,8 +76,8 @@ extern ConVar default_fov;
 extern bool g_bRenderingScreenshot;
 
 #if !defined( _X360 )
-#define SAVEGAME_SCREENSHOT_WIDTH	180
-#define SAVEGAME_SCREENSHOT_HEIGHT	100
+#define SAVEGAME_SCREENSHOT_WIDTH	360
+#define SAVEGAME_SCREENSHOT_HEIGHT	200
 #else
 #define SAVEGAME_SCREENSHOT_WIDTH	128
 #define SAVEGAME_SCREENSHOT_HEIGHT	128
@@ -87,7 +87,7 @@ extern bool g_bRenderingScreenshot;
 extern ConVar sensitivity;
 #endif
 
-ConVar zoom_sensitivity_ratio( "zoom_sensitivity_ratio", "1.0", 0, "Additional mouse sensitivity scale factor applied when FOV is zoomed in." );
+ConVar zoom_sensitivity_ratio( "zoom_sensitivity_ratio", "0.7", 0, "Additional mouse sensitivity scale factor applied when FOV is zoomed in." );
 
 // Each MOD implements GetViewRenderInstance() and provides either a default object or a subclassed object!!!
 IViewRender *view = NULL;	// set in cldll_client_init.cpp if no mod creates their own
@@ -111,7 +111,7 @@ static ConVar v_centerspeed( "v_centerspeed","500" );
 
 // 54 degrees approximates a 35mm camera - we determined that this makes the viewmodels
 // and motions look the most natural.
-ConVar v_viewmodel_fov( "viewmodel_fov", "54", FCVAR_CHEAT );
+ConVar v_viewmodel_fov( "viewmodel_fov", "70", FCVAR_CHEAT );
 
 
 static ConVar mat_viewportscale( "mat_viewportscale", "1.0", FCVAR_CHEAT, "Scale down the main viewport (to reduce GPU impact on CPU profiling)",

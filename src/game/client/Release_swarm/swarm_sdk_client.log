@@ -1,5 +1,5 @@
-﻿Build started 14/04/2015 23:33:47.
-     1>Project "D:\GitHub\src\game\client\swarm_sdk_client.vcxproj" on node 3 (build target(s)).
+﻿Build started 15/04/2015 17:28:21.
+     1>Project "D:\GitHub\Nag-asw\src\game\client\swarm_sdk_client.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating ".\Release_swarm\Client (HL2Swarm).unsuccessfulbuild" because "AlwaysCreate" was specified.
        ClCompile:
@@ -9,21 +9,21 @@
          All outputs are up-to-date.
        Link:
          All outputs are up-to-date.
-         swarm_sdk_client.vcxproj -> D:\GitHub\src\game\client\..\..\bin\client.dll
+         swarm_sdk_client.vcxproj -> D:\GitHub\Nag-asw\src\game\client\..\..\bin\client.dll
        PostBuildEvent:
          Description: Publishing Client to D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\
          if exist "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\." goto ValveStart
          mkdir "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\."
          :ValveStart
-         copy "D:\GitHub\src\bin\"client.dll "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\client.dll"
+         copy "D:\GitHub\Nag-asw\src\bin\"client.dll "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\client.dll"
          if ERRORLEVEL 1 goto BuildEventFailed
-         if exist "D:\GitHub\src\bin\"client.map copy "D:\GitHub\src\bin\"client.map "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\client.map"
+         if exist "D:\GitHub\Nag-asw\src\bin\"client.map copy "D:\GitHub\Nag-asw\src\bin\"client.map "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\client.map"
          copy ".\Release_swarm\"client.pdb "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\client.pdb"
          if ERRORLEVEL 1 goto BuildEventFailed
          goto BuildEventOK
          :BuildEventFailed
          echo *** ERROR! PostBuildStep FAILED for Client (HL2Swarm)! EXE or DLL is probably running. ***
-         del /q "D:\GitHub\src\bin\"client.dll
+         del /q "D:\GitHub\Nag-asw\src\bin\"client.dll
          exit 1
          :BuildEventOK
          
@@ -33,8 +33,8 @@
        FinalizeBuildStatus:
          Deleting file ".\Release_swarm\Client (HL2Swarm).unsuccessfulbuild".
          Touching ".\Release_swarm\Client (HL2Swarm).lastbuildstate".
-     1>Done Building Project "D:\GitHub\src\game\client\swarm_sdk_client.vcxproj" (build target(s)).
+     1>Done Building Project "D:\GitHub\Nag-asw\src\game\client\swarm_sdk_client.vcxproj" (build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.46
+Time Elapsed 00:00:00.77

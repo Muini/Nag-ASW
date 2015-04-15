@@ -70,7 +70,7 @@ extern ConVar autoaim_max_dist;
 #define PLAYER_HULL_REDUCTION	0.70
 
 // This switches between the single primary weapon, and multiple weapons with buckets approach (jdw)
-#define	HL2_SINGLE_PRIMARY_WEAPON_MODE	0
+#define	HL2_SINGLE_PRIMARY_WEAPON_MODE	1
 
 #define TIME_IGNORE_FALL_DAMAGE 5.0
 
@@ -382,9 +382,26 @@ BEGIN_DATADESC( CHL2_Player )
 
 	DEFINE_FIELD( m_flTimeNextLadderHint, FIELD_TIME ),
 
+	DEFINE_FIELD(m_hRagdoll, FIELD_EHANDLE),
+
 	//DEFINE_FIELD( m_hPlayerProxy, FIELD_EHANDLE ), //Shut up class check!
 
 END_DATADESC()
+
+// -------------------------------------------------------------------------------- //
+// Ragdoll entities.
+// -------------------------------------------------------------------------------- //
+
+LINK_ENTITY_TO_CLASS( hl2_ragdoll, CHL2Ragdoll );
+
+IMPLEMENT_SERVERCLASS_ST_NOBASE( CHL2Ragdoll, DT_HL2Ragdoll )
+	SendPropVector( SENDINFO(m_vecRagdollOrigin), -1,  SPROP_COORD ),
+	SendPropEHandle( SENDINFO( m_hPlayer ) ),
+	SendPropModelIndex( SENDINFO( m_nModelIndex ) ),
+	SendPropInt		( SENDINFO(m_nForceBone), 8, 0 ),
+	SendPropVector	( SENDINFO(m_vecForce), -1, SPROP_NOSCALE ),
+	SendPropVector( SENDINFO( m_vecRagdollVelocity ) )
+END_SEND_TABLE()
 
 CHL2_Player::CHL2_Player()
 {
@@ -399,12 +416,12 @@ CHL2_Player::CHL2_Player()
 //
 // SUIT POWER DEVICES
 //
-#define SUITPOWER_CHARGE_RATE	12.5											// 100 units in 8 seconds
+#define SUITPOWER_CHARGE_RATE	5.0											// 100 units in 8 seconds
 
 #ifdef HL2MP
 	CSuitPowerDevice SuitDeviceSprint( bits_SUIT_DEVICE_SPRINT, 25.0f );				// 100 units in 4 seconds
 #else
-	CSuitPowerDevice SuitDeviceSprint( bits_SUIT_DEVICE_SPRINT, 12.5f );				// 100 units in 8 seconds
+	CSuitPowerDevice SuitDeviceSprint( bits_SUIT_DEVICE_SPRINT, 0.0f );				// 100 units in 8 seconds
 #endif
 
 #ifdef HL2_EPISODIC
@@ -418,12 +435,16 @@ CSuitPowerDevice SuitDeviceBreather( bits_SUIT_DEVICE_BREATHER, 6.7f );		// 100 
 IMPLEMENT_SERVERCLASS_ST(CHL2_Player, DT_HL2_Player)
 	SendPropDataTable(SENDINFO_DT(m_HL2Local), &REFERENCE_SEND_TABLE(DT_HL2Local), SendProxy_SendLocalDataTable),
 	SendPropBool( SENDINFO(m_fIsSprinting) ),
+	SendPropEHandle( SENDINFO(m_hRagdoll) ),
+	//SendPropEHandle( SENDINFO(m_hBumpWeapon) ),
 END_SEND_TABLE()
 
 
 void CHL2_Player::Precache( void )
 {
 	BaseClass::Precache();
+	
+	PrecacheModel("models/alyx.mdl");
 
 	PrecacheScriptSound( "HL2Player.SprintNoPower" );
 	PrecacheScriptSound( "HL2Player.SprintStart" );
@@ -441,6 +462,7 @@ void CHL2_Player::Precache( void )
 //-----------------------------------------------------------------------------
 void CHL2_Player::CheckSuitZoom( void )
 {
+	/*
 //#ifndef _XBOX 
 	//Adrian - No zooming without a suit!
 	if ( IsSuitEquipped() )
@@ -454,7 +476,7 @@ void CHL2_Player::CheckSuitZoom( void )
 			StartZooming();
 		}
 	}
-//#endif//_XBOX
+//#endif//_XBOX*/
 }
 
 void CHL2_Player::EquipSuit( bool bPlayEffects )
@@ -483,7 +505,7 @@ void CHL2_Player::HandleSpeedChanges( void )
 
 	bool bCanSprint = CanSprint();
 	bool bIsSprinting = IsSprinting();
-	bool bWantSprint = ( bCanSprint && IsSuitEquipped() && (m_nButtons & IN_SPEED) );
+	bool bWantSprint = ( bCanSprint /*&& IsSuitEquipped()*/ && (m_nButtons & IN_SPEED) );
 	if ( bIsSprinting != bWantSprint && (buttonsChanged & IN_SPEED) )
 	{
 		// If someone wants to sprint, make sure they've pressed the button to do so. We want to prevent the
@@ -515,14 +537,14 @@ void CHL2_Player::HandleSpeedChanges( void )
 	// have suit, pressing button, not sprinting or ducking
 	bool bWantWalking;
 	
-	if( IsSuitEquipped() )
-	{
+	//if( IsSuitEquipped() )
+	//{
 		bWantWalking = (m_nButtons & IN_WALK) && !IsSprinting() && !(m_nButtons & IN_DUCK);
-	}
-	else
-	{
-		bWantWalking = true;
-	}
+	//}
+	//else
+	//{
+	//	bWantWalking = true;
+	//}
 	
 	if( bIsWalking != bWantWalking )
 	{
@@ -1110,7 +1132,7 @@ void CHL2_Player::Spawn(void)
 
 #ifndef HL2MP
 #ifndef PORTAL
-	SetModel( "models/player.mdl" );
+	SetModel( "models/alyx.mdl" );
 #endif
 #endif
 
@@ -1122,8 +1144,8 @@ void CHL2_Player::Spawn(void)
 	//
 	//m_flMaxspeed = 320;
 
-	if ( !IsSuitEquipped() )
-		 StartWalking();
+	//if ( !IsSuitEquipped() )
+	//	 StartWalking();
 
 	SuitPower_SetCharge( 100 );
 
@@ -1168,8 +1190,8 @@ bool CHL2_Player::CanSprint()
 	return ( m_bSprintEnabled &&										// Only if sprint is enabled 
 			!IsWalking() &&												// Not if we're walking
 			!( m_Local.m_bDucked && !m_Local.m_bDucking ) &&			// Nor if we're ducking
-			(GetWaterLevel() != 3) &&									// Certainly not underwater
-			(GlobalEntity_GetState("suit_no_sprint") != GLOBAL_ON) );	// Out of the question without the sprint module
+			(GetWaterLevel() != 3) ); //&&								// Certainly not underwater
+			//(GlobalEntity_GetState("suit_no_sprint") != GLOBAL_ON) );	// Out of the question without the sprint module
 }
 
 //-----------------------------------------------------------------------------
@@ -1192,6 +1214,7 @@ void CHL2_Player::StartAutoSprint()
 //-----------------------------------------------------------------------------
 void CHL2_Player::StartSprinting( void )
 {
+	/*
 	if( m_HL2Local.m_flSuitPower < 10 )
 	{
 		// Don't sprint unless there's a reasonable
@@ -1209,12 +1232,13 @@ void CHL2_Player::StartSprinting( void )
 
 	if( !SuitPower_AddDevice( SuitDeviceSprint ) )
 		return;
-
+	*/
 	CPASAttenuationFilter filter( this );
 	filter.UsePredictionRules();
 	EmitSound( filter, entindex(), "HL2Player.SprintStart" );
+	SetFOV( this, 95, 0.5);
 
-	SetMaxSpeed( HL2_SPRINT_SPEED );
+	SetMaxSpeed( HL2_SPRINT_SPEED*acsmod_player_speed_ratio.GetFloat() );
 	m_fIsSprinting = true;
 }
 
@@ -1223,19 +1247,21 @@ void CHL2_Player::StartSprinting( void )
 //-----------------------------------------------------------------------------
 void CHL2_Player::StopSprinting( void )
 {
+	/*
 	if ( m_HL2Local.m_bitsActiveDevices & SuitDeviceSprint.GetDeviceID() )
 	{
 		SuitPower_RemoveDevice( SuitDeviceSprint );
 	}
-
-	if( IsSuitEquipped() )
-	{
-		SetMaxSpeed( HL2_NORM_SPEED );
-	}
-	else
-	{
-		SetMaxSpeed( HL2_WALK_SPEED );
-	}
+	*/
+	//if( IsSuitEquipped() )
+	//{
+	SetMaxSpeed( HL2_NORM_SPEED*acsmod_player_speed_ratio.GetFloat() );
+	//}
+	//else
+	//{
+	//	SetMaxSpeed( HL2_WALK_SPEED );
+	//}
+	SetFOV( this, GetZoomOwnerDesiredFOV( this ), 0.3);
 
 	m_fIsSprinting = false;
 
@@ -1266,7 +1292,7 @@ void CHL2_Player::EnableSprint( bool bEnable )
 //-----------------------------------------------------------------------------
 void CHL2_Player::StartWalking( void )
 {
-	SetMaxSpeed( HL2_WALK_SPEED );
+	SetMaxSpeed( HL2_WALK_SPEED*acsmod_player_speed_ratio.GetFloat() );
 	m_fIsWalking = true;
 }
 
@@ -1274,7 +1300,7 @@ void CHL2_Player::StartWalking( void )
 //-----------------------------------------------------------------------------
 void CHL2_Player::StopWalking( void )
 {
-	SetMaxSpeed( HL2_NORM_SPEED );
+	SetMaxSpeed( HL2_NORM_SPEED*acsmod_player_speed_ratio.GetFloat() );
 	m_fIsWalking = false;
 }
 
@@ -1284,6 +1310,8 @@ void CHL2_Player::StopWalking( void )
 //-----------------------------------------------------------------------------
 bool CHL2_Player::CanZoom( CBaseEntity *pRequester )
 {
+	return false; //Don't want this
+
 	if ( IsZooming() )
 		return false;
 
@@ -1451,6 +1479,8 @@ bool CHL2_Player::CommanderFindGoal( commandgoal_t *pGoal )
 						COLLISION_GROUP_NONE,
 						&tr );
 
+		//AJOUT : TODO ajouter une particle pour montrer l'endroit de la commande
+		DispatchParticleEffect( "command_goto_valid", vecTarget + tr.plane.normal * 12, RandomAngle( 0, 360 ) );
 
 		if ( !tr.startsolid )
 			pGoal->m_vecGoalLocation = tr.endpos;
@@ -2031,12 +2061,12 @@ void CHL2_Player::FlashlightTurnOn( void )
 	{
 		if( !SuitPower_AddDevice( SuitDeviceFlashlight ) )
 			return;
-	}
+	}/*
 #ifdef HL2_DLL
 	if( !IsSuitEquipped() )
 		return;
 #endif
-
+	*/
 	AddEffects( EF_DIMLIGHT );
 	EmitSound( "HL2Player.FlashLightOn" );
 
@@ -2392,7 +2422,38 @@ int CHL2_Player::OnTakeDamage_Alive( const CTakeDamageInfo &info )
 	// Call the base class implementation
 	return BaseClass::OnTakeDamage_Alive( info );
 }
+//=========================================================
+// Crea un cadaver
+//=========================================================
+void CHL2_Player::CreateRagdollEntity()
+{
+	// Ya hay un cadaver.
+	if ( m_hRagdoll )
+	{
+		// Removerlo.
+		UTIL_RemoveImmediate( m_hRagdoll );
+		m_hRagdoll	= NULL;
+	}
 
+	// Obtenemos el cadaver.
+	CHL2Ragdoll *pRagdoll = dynamic_cast< CHL2Ragdoll* >(m_hRagdoll.Get());
+	
+	// Al parecer no hay ninguno, crearlo.
+	if ( !pRagdoll )
+		pRagdoll = dynamic_cast< CHL2Ragdoll* >(CreateEntityByName("hl2_ragdoll"));
+
+	if ( pRagdoll )
+	{
+		pRagdoll->m_hPlayer				= this;
+		pRagdoll->m_vecRagdollOrigin	= GetAbsOrigin();
+		pRagdoll->m_vecRagdollVelocity	= GetAbsVelocity();
+		pRagdoll->m_nModelIndex			= m_nModelIndex;
+		pRagdoll->m_nForceBone			= m_nForceBone;
+		pRagdoll->SetAbsOrigin(GetAbsOrigin());
+	}
+
+	m_hRagdoll	= pRagdoll;
+}
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void CHL2_Player::OnDamagedByExplosion( const CTakeDamageInfo &info )
@@ -2611,6 +2672,7 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
 	// If I was dry on ammo for my best weapon and justed picked up ammo for it,
 	// autoswitch to my best weapon now.
 	//
+	/*
 	if (bCheckAutoSwitch)
 	{
 		CBaseCombatWeapon *pWeapon = g_pGameRules->GetNextBestWeapon(this, GetActiveWeapon());
@@ -2619,7 +2681,7 @@ int CHL2_Player::GiveAmmo( int nCount, int nAmmoIndex, bool bSuppressSound)
 		{
 			SwitchToNextBestWeapon(GetActiveWeapon());
 		}
-	}
+	}*/
 
 	return nAdd;
 }
@@ -2890,6 +2952,9 @@ void CHL2_Player::PlayerUse ( void )
 				{
 					Weapon_DropSlot( pWeapon->GetSlot() );
 					Weapon_Equip( pWeapon );
+					Weapon_Switch( pWeapon );
+					cvar->FindVar("acsmod_player_speed_ratio")->SetValue( pWeapon->GetSpeedMalus() );
+					SetMaxSpeed( HL2_WALK_SPEED*acsmod_player_speed_ratio.GetFloat() );
 				}
 
 				usedSomething = true;
@@ -3075,6 +3140,9 @@ bool CHL2_Player::Weapon_Ready( void )
 
 	if ( pWeapon == NULL )
 		return false;
+
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( pWeapon->GetSpeedMalus() );
+	SetMaxSpeed( HL2_WALK_SPEED*acsmod_player_speed_ratio.GetFloat() );
 
 	return pWeapon->Ready();
 }
@@ -3330,6 +3398,8 @@ bool CHL2_Player::Weapon_Switch( CBaseCombatWeapon *pWeapon, int viewmodelindex 
 	{
 		StopZooming();
 	}
+
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( pWeapon->GetSpeedMalus() );
 
 	return BaseClass::Weapon_Switch( pWeapon, viewmodelindex );
 }
@@ -3920,3 +3990,149 @@ void CLogicPlayerProxy::InputSetLocatorTargetEntity( inputdata_t &inputdata )
 }
 
 */
+
+// Set the activity based on an event or current state
+void CHL2_Player::SetAnimation( PLAYER_ANIM playerAnim )
+{
+	int animDesired;
+ 
+	float speed;
+ 
+	speed = GetAbsVelocity().Length2D();
+ 
+	if ( GetFlags() & ( FL_FROZEN | FL_ATCONTROLS ) )
+	{
+	speed = 0;
+	playerAnim = PLAYER_IDLE;
+	}
+ 
+	Activity idealActivity = ACT_RUN;
+ 
+	// This could stand to be redone. Why is playerAnim abstracted from activity? (sjb)
+	if ( playerAnim == PLAYER_JUMP )
+	{
+		idealActivity = ACT_JUMP;
+	}
+	else if ( playerAnim == PLAYER_DIE )
+	{
+		if ( m_lifeState == LIFE_ALIVE )
+		{
+			return;
+		}
+	}
+	else if ( playerAnim == PLAYER_ATTACK1 )
+	{
+		if ( GetActivity( ) == ACT_HOVER ||
+			GetActivity( ) == ACT_SWIM ||
+			GetActivity( ) == ACT_HOP ||
+			GetActivity( ) == ACT_LEAP ||
+			GetActivity( ) == ACT_DIESIMPLE )
+		{
+			idealActivity = GetActivity( );
+		}
+		else
+		{
+			idealActivity = ACT_GESTURE_RANGE_ATTACK1;
+		}
+	}
+	else if ( playerAnim == PLAYER_RELOAD )
+	{
+		idealActivity = ACT_GESTURE_RELOAD;
+	}
+	else if ( playerAnim == PLAYER_IDLE || playerAnim == PLAYER_WALK )
+	{
+		if ( !( GetFlags() & FL_ONGROUND ) && GetActivity( ) == ACT_JUMP ) // Still jumping
+		{
+			idealActivity = GetActivity( );
+		}
+		/*
+		else if ( GetWaterLevel() > 1 )
+		{
+			if ( speed == 0 )
+				idealActivity = ACT_HOVER;
+			else
+				idealActivity = ACT_SWIM;
+		}
+		*/
+		else
+		{
+			if ( GetFlags() & FL_DUCKING )
+			{
+				if ( speed > 0 )
+				{
+					idealActivity = ACT_WALK_CROUCH;
+				}
+				else
+				{
+					idealActivity = ACT_COVER_LOW;
+				}
+			}
+			else
+			{
+				if ( speed > 100 )
+				{
+					idealActivity = ACT_RUN;
+				}
+				else if ( speed > 0 )
+				{
+					idealActivity = ACT_WALK;
+				}
+				else
+				{
+					idealActivity = ACT_IDLE;
+				}
+			}
+		}
+ 
+		//idealActivity = TranslateTeamActivity( idealActivity );
+	}
+ 
+	if ( idealActivity == ACT_GESTURE_RANGE_ATTACK1 )
+	{
+		RestartGesture( Weapon_TranslateActivity( idealActivity ) );
+ 
+		// FIXME: this seems a bit wacked
+		Weapon_SetActivity( Weapon_TranslateActivity( ACT_RANGE_ATTACK1 ), 0 );
+ 
+		return;
+	}
+	else if ( idealActivity == ACT_GESTURE_RELOAD )
+	{
+		RestartGesture( Weapon_TranslateActivity( idealActivity ) );
+		return;
+	}
+	else
+	{
+		SetActivity( idealActivity );
+ 
+		animDesired = SelectWeightedSequence( Weapon_TranslateActivity ( idealActivity ) );
+ 
+		if (animDesired == -1)
+		{
+			animDesired = SelectWeightedSequence( idealActivity );
+ 
+			if ( animDesired == -1 )
+			{
+				animDesired = 0;
+			}
+		}
+ 
+		// Already using the desired animation?
+		if ( GetSequence() == animDesired )
+			return;
+ 
+		m_flPlaybackRate = 1.0;
+		ResetSequence( animDesired );
+		SetCycle( 0 );
+		return;
+	}
+ 
+	// Already using the desired animation?
+	if ( GetSequence() == animDesired )
+		return;
+ 
+	//Msg( "Set animation to %d\n", animDesired );
+	// Reset to first frame of desired animation
+	ResetSequence( animDesired );
+	SetCycle( 0 );
+}

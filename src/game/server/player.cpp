@@ -1879,6 +1879,9 @@ void CBasePlayer::Event_Dying()
 	
 	SetLocalAngles( angles );
 
+	CreateRagdollEntity();
+	BecomeRagdollOnClient(vec3_origin); //Fix double ragdoll with first person ragdoll :)
+
 	SetThink(&CBasePlayer::PlayerDeathThink);
 	SetNextThink( gpGlobals->curtime + 0.1f );
 	BaseClass::Event_Dying();

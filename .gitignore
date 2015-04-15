@@ -1,0 +1,8 @@
+*.opensdf
+*.suo
+*.sdf
+game/
+src/game/client/Release_swarm/
+src/game/server/Release_swarm/
+src/bin/
+src/ipch/

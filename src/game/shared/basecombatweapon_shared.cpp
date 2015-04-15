@@ -1677,7 +1677,13 @@ int CBaseCombatWeapon::GetBulletType( void )
 {
 	return 0;
 }
-
+//-----------------------------------------------------------------------------
+// Purpose: Get the Malus ratio / NAG
+//-----------------------------------------------------------------------------
+float CBaseCombatWeapon::GetSpeedMalus( void )
+{
+	return 1.0f;
+}
 //-----------------------------------------------------------------------------
 // Purpose: Base class default for getting spread
 // Input  :
@@ -1686,6 +1692,7 @@ int CBaseCombatWeapon::GetBulletType( void )
 const Vector& CBaseCombatWeapon::GetBulletSpread( void )
 {
 	static Vector cone = VECTOR_CONE_15DEGREES;
+	SetBulletSpreadSize(cone.Length());
 	return cone;
 }
 

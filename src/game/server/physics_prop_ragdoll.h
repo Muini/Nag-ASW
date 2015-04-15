@@ -75,6 +75,7 @@ public:
 	// Damage passing
 	virtual void	SetDamageEntity( CBaseEntity *pEntity );
 	virtual int		OnTakeDamage( const CTakeDamageInfo &info );
+	virtual	void	Event_Killed( const CTakeDamageInfo &info );
 	virtual void OnSave( IEntitySaveUtils *pUtils );
 	virtual void OnRestore();
 
@@ -85,6 +86,8 @@ public:
 	virtual AngularImpulse	PhysGunLaunchAngularImpulse();
 	bool HasPhysgunInteraction( const char *pszKeyName, const char *pszValue );
 	void HandleFirstCollisionInteractions( int index, gamevcollisionevent_t *pEvent );
+
+	virtual void	Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 
 	void			SetUnragdoll( CBaseAnimating *pOther );
 

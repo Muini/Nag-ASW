@@ -1,13 +1,39 @@
-﻿Build started 14/04/2015 23:33:47.
-     1>Project "D:\GitHub\src\game\server\swarm_sdk_server.vcxproj" on node 2 (build target(s)).
+﻿Build started 15/04/2015 17:28:21.
+     1>Project "D:\GitHub\Nag-asw\src\game\server\swarm_sdk_server.vcxproj" on node 3 (build target(s)).
      1>InitializeBuildStatus:
          Touching ".\Release_swarm\Server (HL2Swarm).unsuccessfulbuild".
        ClCompile:
          All outputs are up-to-date.
-         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /I..\..\common /I..\..\public /I..\..\public\tier0 /I..\..\public\tier1 /I.\ /I..\..\game\shared /I..\..\utils\common /I..\..\game\server\NextBot /I.\hl2 /I..\..\game\shared\hl2 /I.\Release_swarm\ /Zi /nologo /W4 /WX- /O2 /Ob2 /Oi /Ot /Oy- /D WIN32 /D _WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D DLLNAME=server /D VPCGAME=swarm /D VPCGAMECAPS=SWARM /D _DLL_EXT=.dll /D COMPILER_MSVC32 /D COMPILER_MSVC /D MEMOVERRIDE_MODULE=server /D GAME_DLL /D VECTOR /D VERSION_SAFE_STEAM_API_INTERFACES /D PROTECTED_THINGS_ENABLE /D sprintf=use_Q_snprintf_instead_of_sprintf /D strncpy=use_Q_strncpy_instead /D _snprintf=use_Q_snprintf_instead /D HL2_DLL /D USES_SAVERESTORE /D HL2_EPISODIC /D _WINDLL /D _MBCS /GF /Gm- /MT /GS- /Gy /arch:SSE2 /fp:fast /Zc:wchar_t /Zc:forScope /GR /Yu"cbase.h" /Fp".\Release_swarm\server.pch" /Fo".\Release_swarm\\" /Fd".\Release_swarm\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt player.cpp /MP 
+         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /I..\..\common /I..\..\public /I..\..\public\tier0 /I..\..\public\tier1 /I.\ /I..\..\game\shared /I..\..\utils\common /I..\..\game\server\NextBot /I.\hl2 /I..\..\game\shared\hl2 /I.\Release_swarm\ /Zi /nologo /W4 /WX- /O2 /Ob2 /Oi /Ot /Oy- /D WIN32 /D _WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D DLLNAME=server /D VPCGAME=swarm /D VPCGAMECAPS=SWARM /D _DLL_EXT=.dll /D COMPILER_MSVC32 /D COMPILER_MSVC /D MEMOVERRIDE_MODULE=server /D GAME_DLL /D VECTOR /D VERSION_SAFE_STEAM_API_INTERFACES /D PROTECTED_THINGS_ENABLE /D sprintf=use_Q_snprintf_instead_of_sprintf /D strncpy=use_Q_strncpy_instead /D _snprintf=use_Q_snprintf_instead /D HL2_DLL /D USES_SAVERESTORE /D HL2_EPISODIC /D _WINDLL /D _MBCS /GF /Gm- /MT /GS- /Gy /arch:SSE2 /fp:fast /Zc:wchar_t /Zc:forScope /GR /Yu"cbase.h" /Fp".\Release_swarm\server.pch" /Fo".\Release_swarm\\" /Fd".\Release_swarm\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ai_basenpc.cpp baseanimating.cpp basecombatcharacter.cpp EntityDissolve.cpp physconstraint.cpp physics.cpp physics_prop_ragdoll.cpp player.cpp props.cpp RagdollBoogie.cpp triggers.cpp wcedit.cpp hl2\hl2_ai_network.cpp hl2\hl2_player.cpp hl2\prop_combine_ball.cpp episodic\grenade_hopwire.cpp episodic\npc_hunter.cpp episodic\vehicle_jeep_episodic.cpp episodic\weapon_striderbuster.cpp hl2\weapon_physcannon.cpp hl2\npc_antlionguard.cpp hl2\npc_barnacle.cpp hl2\npc_combinegunship.cpp hl2\npc_fastzombie.cpp hl2\npc_manhack.cpp hl2\npc_strider.cpp hl2\npc_vortigaunt_episodic.cpp /MP 
+         ai_basenpc.cpp
+         baseanimating.cpp
+         basecombatcharacter.cpp
+         EntityDissolve.cpp
+         physconstraint.cpp
+         physics.cpp
+         physics_prop_ragdoll.cpp
          player.cpp
      1>player.cpp(1138): warning C4189: 'pPlayer' : local variable is initialized but not referenced
      1>player.cpp(1113): warning C4189: 'ffound' : local variable is initialized but not referenced
+         props.cpp
+         RagdollBoogie.cpp
+         triggers.cpp
+         wcedit.cpp
+         hl2_ai_network.cpp
+         hl2_player.cpp
+         prop_combine_ball.cpp
+         grenade_hopwire.cpp
+         npc_hunter.cpp
+         vehicle_jeep_episodic.cpp
+         weapon_striderbuster.cpp
+         weapon_physcannon.cpp
+         npc_antlionguard.cpp
+         npc_barnacle.cpp
+         npc_combinegunship.cpp
+         npc_fastzombie.cpp
+         npc_manhack.cpp
+         npc_strider.cpp
+         npc_vortigaunt_episodic.cpp
          All outputs are up-to-date.
        Link:
          D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"..\..\bin\server.dll" /INCREMENTAL:NO /NOLOGO /LIBPATH:..\..\lib\common\. /LIBPATH:..\..\lib\public\. winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NODEFAULTLIB:libc /NODEFAULTLIB:libcd /NODEFAULTLIB:libcmtd /MANIFEST:NO /DEBUG /PDB:".\Release_swarm\server.pdb" /MAP:".\Release_swarm\server.map" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO /MACHINE:X86 /DLL .\Release_swarm\achievement_saverestore.obj
@@ -636,21 +662,21 @@
          ..\..\lib\public\vgui_controls.lib
          ..\..\lib\public\vstdlib.lib
             Creating library ..\..\bin\server.lib and object ..\..\bin\server.exp
-         swarm_sdk_server.vcxproj -> D:\GitHub\src\game\server\..\..\bin\server.dll
+         swarm_sdk_server.vcxproj -> D:\GitHub\Nag-asw\src\game\server\..\..\bin\server.dll
        PostBuildEvent:
          Description: Publishing Server to D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\
          if exist "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\." goto ValveStart
          mkdir "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\."
          :ValveStart
-         copy "D:\GitHub\src\bin\"server.dll "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\server.dll"
+         copy "D:\GitHub\Nag-asw\src\bin\"server.dll "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\server.dll"
          if ERRORLEVEL 1 goto BuildEventFailed
-         if exist "D:\GitHub\src\bin\"server.map copy "D:\GitHub\src\bin\"server.map "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\server.map"
+         if exist "D:\GitHub\Nag-asw\src\bin\"server.map copy "D:\GitHub\Nag-asw\src\bin\"server.map "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\server.map"
          copy ".\Release_swarm\"server.pdb "D:\Program Files\Steam\SteamApps\sourcemods\aswhl2port\bin\.\server.pdb"
          if ERRORLEVEL 1 goto BuildEventFailed
          goto BuildEventOK
          :BuildEventFailed
          echo *** ERROR! PostBuildStep FAILED for Server (HL2Swarm)! EXE or DLL is probably running. ***
-         del /q "D:\GitHub\src\bin\"server.dll
+         del /q "D:\GitHub\Nag-asw\src\bin\"server.dll
          exit 1
          :BuildEventOK
          
@@ -660,8 +686,8 @@
        FinalizeBuildStatus:
          Deleting file ".\Release_swarm\Server (HL2Swarm).unsuccessfulbuild".
          Touching ".\Release_swarm\Server (HL2Swarm).lastbuildstate".
-     1>Done Building Project "D:\GitHub\src\game\server\swarm_sdk_server.vcxproj" (build target(s)).
+     1>Done Building Project "D:\GitHub\Nag-asw\src\game\server\swarm_sdk_server.vcxproj" (build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:06.81
+Time Elapsed 00:00:12.73

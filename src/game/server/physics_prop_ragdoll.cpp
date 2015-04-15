@@ -20,9 +20,17 @@
 #include "AI_Criteria.h"
 #include "ragdoll_shared.h"
 #include "hierarchy.h"
+#include "particle_parse.h"
+#include "particles/particles.h"
+#include "engine/IEngineSound.h"
+#include "soundent.h"
+#include "soundenvelope.h"
+#include "gib.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+ConVar acsmod_ragdoll_pickup("acsmod_ragdoll_pickup","0");
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -192,6 +200,9 @@ void CRagdollProp::Spawn( void )
 	m_flBlendWeight = 0.0f;
 	m_nOverlaySequence = -1;
 
+	m_takedamage = DAMAGE_EVENTS_ONLY;
+	m_iHealth = 100;
+
 	// Unless specified, do not allow this to be dissolved
 	if ( HasSpawnFlags( SF_RAGDOLLPROP_ALLOW_DISSOLVE ) == false )
 	{
@@ -297,7 +308,10 @@ void CRagdollProp::Precache( void )
 
 int CRagdollProp::ObjectCaps()
 {
-	return BaseClass::ObjectCaps() | FCAP_WCEDIT_POSITION;
+	if(acsmod_ragdoll_pickup.GetBool())
+		return BaseClass::ObjectCaps() | FCAP_WCEDIT_POSITION | FCAP_IMPULSE_USE;
+	else
+		return BaseClass::ObjectCaps() | FCAP_WCEDIT_POSITION;
 }
 
 //-----------------------------------------------------------------------------
@@ -366,7 +380,7 @@ void CRagdollProp::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t r
 		m_strSourceClassName = NULL_STRING;
 	}
 	m_bHasBeenPhysgunned = true;
-
+	/*
 	if( HasPhysgunInteraction( "onpickup", "boogie" ) )
 	{
 		if ( reason == PUNTED_BY_CANNON )
@@ -378,7 +392,7 @@ void CRagdollProp::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t r
 			CRagdollBoogie::Create( this, 150, gpGlobals->curtime, 2.0f, 0.0f );
 		}
 	}
-
+	*/
 	if ( HasSpawnFlags( SF_RAGDOLLPROP_USE_LRU_RETIREMENT ) )
 	{
 		s_RagdollLRU.MoveToTopOfLRU( this );
@@ -395,7 +409,26 @@ void CRagdollProp::OnPhysGunPickup( CBasePlayer *pPhysGunUser, PhysGunPickup_t r
 	}
 }
 
+void CRagdollProp::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value ) 
+{
+	if(acsmod_ragdoll_pickup.GetBool())
+	{
+		ragdoll_t *pRagdollPhys = GetRagdoll( );
+		for ( int j = 0; j < pRagdollPhys->listCount; ++j )
+		{
+			pRagdollPhys->list[j].pObject->Wake();
+			pRagdollPhys->list[j].pObject->EnableMotion( true );
+		}
+		CBasePlayer *pPlayer = ToBasePlayer( pActivator );
 
+		if ( pPlayer )
+		{
+			pPlayer->PickupObject( this );
+		}
+	}
+	
+	BaseClass::Use(pActivator, pCaller, useType, value);
+}
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -404,12 +437,12 @@ void CRagdollProp::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reaso
 	CDefaultPlayerPickupVPhysics::OnPhysGunDrop( pPhysGunUser, Reason );
 	m_hPhysicsAttacker = pPhysGunUser;
 	m_flLastPhysicsInfluenceTime = gpGlobals->curtime;
-
+	/*
 	if( HasPhysgunInteraction( "onpickup", "boogie" ) )
 	{
 		CRagdollBoogie::Create( this, 150, gpGlobals->curtime, 3.0f, SF_RAGDOLL_BOOGIE_ELECTRICAL );
 	}
-
+	*/
 	if ( HasSpawnFlags( SF_RAGDOLLPROP_USE_LRU_RETIREMENT ) )
 	{
 		s_RagdollLRU.MoveToTopOfLRU( this );
@@ -423,7 +456,7 @@ void CRagdollProp::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reaso
 
 	if ( Reason != LAUNCHED_BY_CANNON )
 		return;
-
+	/*
 	if( HasPhysgunInteraction( "onlaunch", "spin_zaxis" ) )
 	{
 		Vector vecAverageCenter( 0, 0, 0 );
@@ -453,7 +486,7 @@ void CRagdollProp::OnPhysGunDrop( CBasePlayer *pPhysGunUser, PhysGunDrop_t Reaso
 			pRagdollPhys->list[j].pObject->AddVelocity( &vecDir, NULL );
 		}
 	}
-
+	*/
 	PhysSetGameFlags( VPhysicsGetObject(), FVPHYSICS_WAS_THROWN );
 	m_bFirstCollisionAfterLaunch = true;
 }
@@ -494,10 +527,10 @@ void CRagdollProp::VPhysicsCollision( int index, gamevcollisionevent_t *pEvent )
 	if ( pHitEntity && HasPhysicsAttacker( 0.5f ) == pHitEntity )
 		return;
 
-	if( m_bFirstCollisionAfterLaunch )
-	{
+	//if( m_bFirstCollisionAfterLaunch )
+	//{
 		HandleFirstCollisionInteractions( index, pEvent );
-	}
+	//}
 	
 	if ( m_takedamage != DAMAGE_NO )
 	{
@@ -506,10 +539,10 @@ void CRagdollProp::VPhysicsCollision( int index, gamevcollisionevent_t *pEvent )
 		if ( damage > 0 )
 		{
 			// Take extra damage after we're punted by the physcannon
-			if ( m_bFirstCollisionAfterLaunch )
+			/*if ( m_bFirstCollisionAfterLaunch )
 			{
 				damage *= 10;
-			}
+			}*/
 
 			CBaseEntity *pHitEntity = pEvent->pEntities[!index];
 			if ( !pHitEntity )
@@ -531,13 +564,13 @@ void CRagdollProp::VPhysicsCollision( int index, gamevcollisionevent_t *pEvent )
 			PhysCallbackDamage( this, CTakeDamageInfo( pHitEntity, pHitEntity, damageForce, damagePos, damage, damageType ), *pEvent, index );
 		}
 	}
-
+	/*
 	if ( m_bFirstCollisionAfterLaunch )
 	{
 		// Setup the think function to remove the flags
 		SetThink( &CRagdollProp::ClearFlagsThink );
 		SetNextThink( gpGlobals->curtime );
-	}
+	}*/
 }
 
 
@@ -626,15 +659,39 @@ void CRagdollProp::HandleFirstCollisionInteractions( int index, gamevcollisionev
 	bool bAlienBloodSplat = HasPhysgunInteraction( "onfirstimpact", "alienbloodsplat" );
 	if( bAlienBloodSplat || HasPhysgunInteraction( "onfirstimpact", "bloodsplat" ) )
 	{
+		/*
+		if(random->RandomInt(0,6)==0)
+		{
+			IPhysicsObject *pObj = VPhysicsGetObject();
+ 
+			Vector vecPos;
+			pObj->GetPosition( &vecPos, NULL );
+ 
+			trace_t tr;
+			UTIL_TraceLine( vecPos, vecPos + pEvent->preVelocity[0] * 1.5, MASK_SHOT, this, COLLISION_GROUP_INTERACTIVE_DEBRIS, &tr );
+
+			UTIL_BloodDecalTrace( &tr, bAlienBloodSplat ? BLOOD_COLOR_GREEN : BLOOD_COLOR_RED );
+
+			if(random->RandomInt(0,10)==0)
+				EmitSound( "NPC.BloodMove" );
+		}
+		*/
+	}
+	
+	if(random->RandomInt(0,10)==0)
+	{
 		IPhysicsObject *pObj = VPhysicsGetObject();
  
 		Vector vecPos;
 		pObj->GetPosition( &vecPos, NULL );
  
 		trace_t tr;
-		UTIL_TraceLine( vecPos, vecPos + pEvent->preVelocity[0] * 1.5, MASK_SHOT, this, COLLISION_GROUP_NONE, &tr );
+		UTIL_TraceLine( vecPos, vecPos + pEvent->preVelocity[0] * 1.5, MASK_SHOT, this, COLLISION_GROUP_INTERACTIVE_DEBRIS, &tr );
 
 		UTIL_BloodDecalTrace( &tr, bAlienBloodSplat ? BLOOD_COLOR_GREEN : BLOOD_COLOR_RED );
+
+		if(random->RandomInt(0,10)==0)
+			EmitSound( "NPC.BloodMove" );
 	}
 }
 
@@ -695,7 +752,9 @@ void CRagdollProp::InitRagdoll( const Vector &forceVector, int forceBone, const 
 	SetMoveType( MOVETYPE_VPHYSICS );
 	SetSolid( SOLID_VPHYSICS );
 	AddSolidFlags( FSOLID_CUSTOMRAYTEST | FSOLID_CUSTOMBOXTEST );
-	m_takedamage = DAMAGE_EVENTS_ONLY;
+	m_takedamage = DAMAGE_YES;
+
+	m_iHealth = 200;
 
 	ragdollparams_t params;
 	params.pGameData = static_cast<void *>( static_cast<CBaseEntity *>(this) );
@@ -805,9 +864,104 @@ int	CRagdollProp::OnTakeDamage( const CTakeDamageInfo &info )
 		return m_hDamageEntity->OnTakeDamage( subInfo );
 	}
 
+	if( ( info.GetDamageType() == DMG_BURN ) && random->RandomInt(0,2) == 1 )
+	{
+		Ignite(random->RandomInt(5,15), false, random->RandomInt(6,12) );
+	}
+	
+	if( info.GetDamageType() & ( DMG_CRUSH | DMG_FALL ) )
+	{
+		return 0;
+	}
+
 	return BaseClass::OnTakeDamage( info );
 }
 
+void CRagdollProp::Event_Killed( const CTakeDamageInfo &info )
+{
+	bool explode = false;
+	/*
+	if( m_iHealth < -400 )
+		explode = true;
+	*/
+	if( info.GetDamageType() & ( DMG_DISSOLVE ) && m_iHealth < -100 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_BLAST ) && m_iHealth < -200 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_VEHICLE | DMG_FALL | DMG_CLUB ) && m_iHealth < -300 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_BUCKSHOT ) && m_iHealth < -400 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_SLASH ) && m_iHealth < -500 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_SHOCK | DMG_BULLET ) && m_iHealth < -600 )
+	{
+		explode = true;
+	}
+	else if( info.GetDamageType() & ( DMG_CRUSH ) && m_iHealth < -10000 )
+	{
+		explode = true;
+	}
+
+	if( explode )
+	{
+		EmitSound( "NPC.ExplodeGore" );
+			
+		DispatchParticleEffect( "Humah_Explode_blood", WorldSpaceCenter(), GetAbsAngles() );
+
+		CGib::SpawnSpecificGibs( this, 1, 100, 600, "models/gibs/hgibs_jaw.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, 2, 100, 600, "models/gibs/leg.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, 4, 100, 600, "models/gibs/hgibs_rib.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, 2, 100, 600, "models/gibs/hgibs_scapula.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, 1, 100, 600, "models/gibs/hgibs_spine.mdl", 5 );
+
+		CGib::SpawnStickyGibs( this, WorldSpaceCenter(), random->RandomInt(20,40) );
+				
+		//BLOOOOOOD !!!!
+		trace_t tr;
+		Vector randVector;
+		//Create 128 random decals that are within +/- 256 units.
+		for ( int i = 0 ; i < 64; i++ )
+		{
+			randVector.x = random->RandomFloat( -256.0f, 256.0f );
+			randVector.y = random->RandomFloat( -256.0f, 256.0f );
+			randVector.z = random->RandomFloat( -256.0f, 256.0f );
+
+			AI_TraceLine( WorldSpaceCenter()+Vector(0,0,1), WorldSpaceCenter()-randVector, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );			 
+
+			UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+		}
+
+		for ( int i = 0 ; i < 4; i++ )
+		{
+			randVector.x = random->RandomFloat( -256.0f, 256.0f );
+			randVector.y = random->RandomFloat( -256.0f, 256.0f );
+			randVector.z = random->RandomFloat( -256.0f, 256.0f );
+
+			AI_TraceLine( GetAbsOrigin()+Vector(0,0,1), GetAbsOrigin()-randVector, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );			 
+
+			UTIL_DecalTrace( &tr, "Big_Gib_Blood" );
+		}
+
+		m_takedamage = DAMAGE_NO;
+		UTIL_Remove( this );
+
+	}else if (m_takedamage == DAMAGE_YES){
+		return;
+	}else{
+		return BaseClass::Event_Killed( info );
+	}
+}
 //-----------------------------------------------------------------------------
 // Purpose: Force all the ragdoll's bone's physics objects to recheck their collision filters
 //-----------------------------------------------------------------------------
@@ -1450,6 +1604,52 @@ CBaseEntity *CreateServerRagdoll( CBaseAnimating *pAnimating, int forceBone, con
 	mins = pAnimating->CollisionProp()->OBBMins();
 	maxs = pAnimating->CollisionProp()->OBBMaxs();
 	pRagdoll->CollisionProp()->SetCollisionBounds( mins, maxs );
+
+	if ( info.GetDamageType() & (DMG_BULLET|DMG_CRUSH|DMG_SLASH) )
+	{
+		//BLOOD
+		trace_t tr;
+		Vector vecTraceOri = info.GetDamagePosition();
+		Vector vecTraceDir =  Vector(0,0,-1);
+		QAngle angleDir;
+		
+		AI_TraceLine( vecTraceOri, vecTraceOri + vecTraceDir * 8.0f, MASK_ALL, NULL, COLLISION_GROUP_INTERACTIVE_DEBRIS, &tr);
+		UTIL_ImpactTrace( &tr, DMG_BULLET );
+		UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+
+		UTIL_BloodImpact( vecTraceOri, vecTraceDir, BLOOD_COLOR_RED, info.GetDamage() );
+
+		for(int i=0; i<3;i++)
+		{
+			AI_TraceLine( vecTraceOri, vecTraceOri + vecTraceDir * 8.0f, MASK_ALL, NULL, COLLISION_GROUP_INTERACTIVE_DEBRIS, &tr);
+			UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+
+			AI_TraceLine( vecTraceOri, vecTraceOri + vecTraceDir * 16.0f * i, MASK_SOLID_BRUSHONLY & ~CONTENTS_GRATE, NULL, COLLISION_GROUP_DEBRIS, &tr);
+			if ( tr.fraction != 1.0 )
+			{
+				UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+			}
+		}
+
+		if ( (info.GetDamageType() & (DMG_VEHICLE|DMG_BULLET|DMG_SLASH|DMG_CLUB|DMG_BUCKSHOT)) && random->RandomInt(0,2)==1 )
+		{
+			DispatchParticleEffect( "headshot_spray", PATTACH_POINT_FOLLOW, pRagdoll, "eyes", false );
+		}
+		//else
+		//	DispatchParticleEffect( "headshot_spray", PATTACH_POINT_FOLLOW, pRagdoll, random->RandomInt(1,3), false );
+	}
+	if( info.GetDamageType() & ( DMG_BLAST ) && random->RandomInt(0,6)==1 )
+	{
+		pRagdoll->Ignite(random->RandomInt(3,15), false, random->RandomInt(4,8) );
+	}
+	if( info.GetDamageType() & ( DMG_BURN ) && random->RandomInt(0,2)==1 )
+	{
+		pRagdoll->Ignite(random->RandomInt(5,25), false, random->RandomInt(6,12) );
+	}
+	if( info.GetDamageType() & ( DMG_SHOCK ) )
+	{
+		CRagdollBoogie::Create( pRagdoll, random->RandomInt(50,200), gpGlobals->curtime, random->RandomFloat(2.0f,6.0f), SF_RAGDOLL_BOOGIE_ELECTRICAL );
+	}
 
 	return pRagdoll;
 }
