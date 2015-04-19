@@ -443,7 +443,7 @@ void CBaseViewModel::CalcViewModelLag( Vector& origin, QAngle& angles, QAngle& o
 		Vector vDifference;
 		VectorSubtract( forward, m_vecLastFacing, vDifference );
 
-		float flSpeed = 5.0f;
+		float flSpeed = 8.0f;
 
 		// If we start to lag too far behind, we'll increase the "catch up" speed.  Solves the problem with fast cl_yawspeed, m_yaw or joysticks
 		//  rotating quickly.  The old code would slam lastfacing with origin causing the viewmodel to pop to a new position
@@ -474,9 +474,9 @@ void CBaseViewModel::CalcViewModelLag( Vector& origin, QAngle& angles, QAngle& o
 		pitch += 360.0f;
 
 	//FIXME: These are the old settings that caused too many exposed polys on some models
-	VectorMA( origin, -pitch * 0.02f,	forward,	origin );
-	VectorMA( origin, -pitch * 0.01f,		right,	origin );
-	VectorMA( origin, -pitch * 0.005f,		up,		origin);
+	VectorMA( origin, -pitch * 0.025f,	forward,	origin );
+	VectorMA( origin, -pitch * 0.02f,		right,	origin );
+	VectorMA( origin, -pitch * 0.015f,		up,		origin);
 }
 
 //-----------------------------------------------------------------------------

@@ -7,7 +7,7 @@
 //=============================================================================//
 
 #include "cbase.h"
-#include "basecombatweapon.h"
+#include "basehlcombatweapon.h"
 #include "player.h"
 #include "gamerules.h"
 #include "ammodef.h"
@@ -20,7 +20,8 @@
 #include "ndebugoverlay.h"
 #include "te_effect_dispatch.h"
 #include "rumble_shared.h"
-#include "gamestats.h"
+#include "GameStats.h"
+#include "IEffects.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -28,7 +29,9 @@
 IMPLEMENT_SERVERCLASS_ST( CBaseHLBludgeonWeapon, DT_BaseHLBludgeonWeapon )
 END_SEND_TABLE()
 
-#define BLUDGEON_HULL_DIM		16
+#define BLUDGEON_HULL_DIM	16
+
+ConVar    acsmod_melee_ecart		( "acsmod_melee_ecart","16.0");
 
 static const Vector g_bludgeonMins(-BLUDGEON_HULL_DIM,-BLUDGEON_HULL_DIM,-BLUDGEON_HULL_DIM);
 static const Vector g_bludgeonMaxs(BLUDGEON_HULL_DIM,BLUDGEON_HULL_DIM,BLUDGEON_HULL_DIM);
@@ -60,7 +63,6 @@ void CBaseHLBludgeonWeapon::Spawn( void )
 void CBaseHLBludgeonWeapon::Precache( void )
 {
 	//Call base class first
-	PrecacheEffect( "watersplash" );
 	BaseClass::Precache();
 }
 
@@ -94,8 +96,17 @@ void CBaseHLBludgeonWeapon::ItemPostFrame( void )
 	if ( pOwner == NULL )
 		return;
 
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if(pPlayer && !engine->IsPaused())
+	{
+		cvar->FindVar("acsmod_player_speed_ratio")->SetValue( GetSpeedMalus() );
+		cvar->FindVar("crosshair")->SetValue( 0 );
+	}
+	
 	if ( (pOwner->m_nButtons & IN_ATTACK) && (m_flNextPrimaryAttack <= gpGlobals->curtime) )
 	{
+		//AddViewKick();
 		PrimaryAttack();
 	} 
 	else if ( (pOwner->m_nButtons & IN_ATTACK2) && (m_flNextSecondaryAttack <= gpGlobals->curtime) )
@@ -114,9 +125,25 @@ void CBaseHLBludgeonWeapon::ItemPostFrame( void )
 // Input   :
 // Output  :
 //------------------------------------------------------------------------------
-void CBaseHLBludgeonWeapon::PrimaryAttack()
+void CBaseHLBludgeonWeapon::PrimaryAttack( int slashNbr )
 {
-	Swing( false );
+	int	i;
+	for ( i = 0; i < slashNbr; i++ )
+	{
+		Swing( false, i );
+	}
+
+	m_iSecondaryAttacks++;
+		
+	// Send the anim
+	SendWeaponAnim( ACT_VM_HITCENTER );
+
+	//Setup our next attack times
+	m_flNextPrimaryAttack = gpGlobals->curtime + GetFireRate();
+	m_flNextSecondaryAttack = gpGlobals->curtime + GetFireRate();
+
+	//Play swing sound
+	WeaponSound( SINGLE );
 }
 
 //------------------------------------------------------------------------------
@@ -124,9 +151,33 @@ void CBaseHLBludgeonWeapon::PrimaryAttack()
 // Input   :
 // Output  :
 //------------------------------------------------------------------------------
-void CBaseHLBludgeonWeapon::SecondaryAttack()
+void CBaseHLBludgeonWeapon::SecondaryAttack( int slashNbr )
 {
-	Swing( true );
+	int	i;
+	for ( i = 0; i < slashNbr; i++ )
+	{
+		Swing( true, i );
+	}
+	
+	m_iSecondaryAttacks++;
+
+	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
+	if ( !pOwner )
+		return;
+
+	// Send the anim
+	if (pOwner->GetGroundEntity() == NULL){
+		SendWeaponAnim( ACT_VM_SWINGHARD );
+	}else{
+		SendWeaponAnim( ACT_VM_MISSCENTER );
+	}
+
+	//Setup our next attack times
+	m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+	m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
+
+	//Play swing sound
+	WeaponSound( SINGLE );
 }
 
 
@@ -155,7 +206,11 @@ void CBaseHLBludgeonWeapon::Hit( trace_t &traceHit, Activity nHitActivity, bool 
 		pPlayer->EyeVectors( &hitDirection, NULL, NULL );
 		VectorNormalize( hitDirection );
 
-		CTakeDamageInfo info( GetOwner(), GetOwner(), GetDamageForActivity( nHitActivity ), DMG_CLUB );
+		int damage = GetDamageForActivity( nHitActivity );
+		if ( bIsSecondary )
+			damage *= 2.0;
+		
+		CTakeDamageInfo info( GetOwner(), GetOwner(), damage, DMG_SLASH );
 
 		if( pPlayer && pHitEntity->IsNPC() )
 		{
@@ -240,11 +295,11 @@ bool CBaseHLBludgeonWeapon::ImpactWater( const Vector &start, const Vector &end 
 	//		 right now anyway...
 	
 	// We must start outside the water
-	if ( UTIL_PointContents( start, MASK_WATER ) & (CONTENTS_WATER|CONTENTS_SLIME))
+	if ( UTIL_PointContents( start, (CONTENTS_WATER|CONTENTS_SLIME) ) & (CONTENTS_WATER|CONTENTS_SLIME))
 		return false;
 
 	// We must end inside of water
-	if ( !(UTIL_PointContents( end, MASK_WATER ) & (CONTENTS_WATER|CONTENTS_SLIME)))
+	if ( !(UTIL_PointContents( end, (CONTENTS_WATER|CONTENTS_SLIME) ) & (CONTENTS_WATER|CONTENTS_SLIME)))
 		return false;
 
 	trace_t	waterTrace;
@@ -258,7 +313,7 @@ bool CBaseHLBludgeonWeapon::ImpactWater( const Vector &start, const Vector &end 
 		data.m_fFlags  = 0;
 		data.m_vOrigin = waterTrace.endpos;
 		data.m_vNormal = waterTrace.plane.normal;
-		data.m_flScale = 8.0f;
+		data.m_flScale = 4.0f;
 
 		// See if we hit slime
 		if ( waterTrace.contents & CONTENTS_SLIME )
@@ -282,7 +337,7 @@ void CBaseHLBludgeonWeapon::ImpactEffect( trace_t &traceHit )
 		return;
 
 	//FIXME: need new decals
-	UTIL_ImpactTrace( &traceHit, DMG_CLUB );
+	UTIL_ImpactTrace( &traceHit, DMG_SLASH );
 }
 
 
@@ -290,7 +345,7 @@ void CBaseHLBludgeonWeapon::ImpactEffect( trace_t &traceHit )
 // Purpose : Starts the swing of the weapon and determines the animation
 // Input   : bIsSecondary - is this a secondary attack?
 //------------------------------------------------------------------------------
-void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
+void CBaseHLBludgeonWeapon::Swing( int bIsSecondary, int hitnumber )
 {
 	trace_t traceHit;
 
@@ -306,12 +361,37 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 
 	forward = pOwner->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT, GetRange() );
 
-	Vector swingEnd = swingStart + forward * GetRange();
-	UTIL_TraceLine( swingStart, swingEnd, MASK_SHOT_HULL, pOwner, COLLISION_GROUP_NONE, &traceHit );
+	// Add here the code to modify the end position of the vector
+	Vector endPos = swingStart;
+
+	if (pOwner->GetGroundEntity() == NULL){
+		endPos.z -= ( acsmod_melee_ecart.GetFloat() * hitnumber ) * 1.5; // Coup vertical
+	}else{
+		endPos.x += acsmod_melee_ecart.GetFloat() * hitnumber;
+		endPos.y += acsmod_melee_ecart.GetFloat() * hitnumber;
+	}
+
+	Vector swingEnd;
+
+	if ( !bIsSecondary )
+		swingEnd = endPos + forward * GetRange() * 1.1;
+	else
+		swingEnd = endPos + forward * GetRange();
+
+	//NDebugOverlay::Line( swingStart, swingEnd, 255, 0, 0, true, 5.0f ); //rouge
+
+	UTIL_TraceLine( swingStart, swingEnd, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &traceHit );
+
 	Activity nHitActivity = ACT_VM_HITCENTER;
 
 	// Like bullets, bludgeon traces have to trace against triggers.
-	CTakeDamageInfo triggerInfo( GetOwner(), GetOwner(), GetDamageForActivity( nHitActivity ), DMG_CLUB );
+	int damage = GetDamageForActivity( nHitActivity );
+
+	if ( bIsSecondary )
+		damage *= 2.5;
+		
+	CTakeDamageInfo triggerInfo( GetOwner(), GetOwner(), damage, DMG_SLASH );
+
 	triggerInfo.SetDamagePosition( traceHit.startpos );
 	triggerInfo.SetDamageForce( forward );
 	TraceAttackToTriggers( triggerInfo, traceHit.startpos, traceHit.endpos, forward );
@@ -344,15 +424,6 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 		}
 	}
 
-	if ( !bIsSecondary )
-	{
-		m_iPrimaryAttacks++;
-	} 
-	else 
-	{
-		m_iSecondaryAttacks++;
-	}
-
 	gamestats->Event_WeaponFired( pOwner, !bIsSecondary, GetClassname() );
 
 	// -------------------------
@@ -360,7 +431,7 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 	// -------------------------
 	if ( traceHit.fraction == 1.0f )
 	{
-		nHitActivity = bIsSecondary ? ACT_VM_MISSCENTER2 : ACT_VM_MISSCENTER;
+		//nHitActivity = bIsSecondary ? ACT_VM_MISSCENTER2 : ACT_VM_MISSCENTER;
 
 		// We want to test the first swing again
 		Vector testEnd = swingStart + forward * GetRange();
@@ -372,14 +443,4 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 	{
 		Hit( traceHit, nHitActivity, bIsSecondary ? true : false );
 	}
-
-	// Send the anim
-	SendWeaponAnim( nHitActivity );
-
-	//Setup our next attack times
-	m_flNextPrimaryAttack = gpGlobals->curtime + GetFireRate();
-	m_flNextSecondaryAttack = gpGlobals->curtime + SequenceDuration();
-
-	//Play swing sound
-	WeaponSound( SINGLE );
 }

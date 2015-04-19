@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose:		Crowbar - an old favorite
 //
@@ -52,7 +52,6 @@ IMPLEMENT_ACTTABLE(CWeaponCrowbar);
 CWeaponCrowbar::CWeaponCrowbar( void )
 {
 }
-
 //-----------------------------------------------------------------------------
 // Purpose: Get the damage amount for the animation we're doing
 // Input  : hitActivity - currently played activity

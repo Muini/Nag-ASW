@@ -1,6 +1,8 @@
 *.opensdf
 *.suo
 *.sdf
+*.obj
+*.tlog
 game/
 src/game/client/Release_swarm/
 src/game/server/Release_swarm/

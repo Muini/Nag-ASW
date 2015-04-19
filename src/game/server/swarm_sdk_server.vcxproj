@@ -776,6 +776,11 @@ exit 1
     <ClCompile Include="wcedit.cpp" />
     <ClCompile Include="..\shared\weapon_parse.cpp" />
     <ClCompile Include="..\shared\weapon_proficiency.cpp" />
+    <ClCompile Include="weapon_cannon.cpp" />
+    <ClCompile Include="weapon_epee.cpp" />
+    <ClCompile Include="weapon_musket.cpp" />
+    <ClCompile Include="weapon_pistolet.cpp" />
+    <ClCompile Include="weapon_rifle.cpp" />
     <ClCompile Include="weight_button.cpp" />
     <ClCompile Include="world.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -1296,6 +1301,8 @@ exit 1
     <ClInclude Include="wcedit.h" />
     <ClInclude Include="..\shared\weapon_parse.h" />
     <ClInclude Include="..\shared\weapon_proficiency.h" />
+    <ClInclude Include="weapon_cannon.h" />
+    <ClInclude Include="weapon_epee.h" />
     <ClInclude Include="world.h" />
     <ClInclude Include="plasma.h" />
     <ClInclude Include="smoke_trail.h" />

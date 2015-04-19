@@ -516,7 +516,7 @@ CHLSelectFireMachineGun::CHLSelectFireMachineGun( void )
 {
 	m_fMinRange1	= 65;
 	m_fMinRange2	= 65;
-	m_fMaxRange1	= 1024;
-	m_fMaxRange2	= 1024;
+	m_fMaxRange1	= 2048;
+	m_fMaxRange2	= 2048;
 	m_iFireMode		= FIREMODE_FULLAUTO;
 }

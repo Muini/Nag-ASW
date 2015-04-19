@@ -18,6 +18,7 @@
 #include "soundent.h"
 #include "vstdlib/random.h"
 #include "gamestats.h"
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -45,8 +46,8 @@ public:
 
 	virtual const Vector& GetBulletSpread( void )
 	{
-		static Vector vitalAllyCone = VECTOR_CONE_3DEGREES;
-		static Vector cone = VECTOR_CONE_10DEGREES;
+		static Vector vitalAllyCone = VECTOR_CONE_5DEGREES;
+		static Vector cone = VECTOR_CONE_5DEGREES;
 
 		if( GetOwner() && (GetOwner()->Classify() == CLASS_PLAYER_ALLY_VITAL) )
 		{
@@ -58,8 +59,10 @@ public:
 		return cone;
 	}
 
+	float GetSpeedMalus() { return 0.8f; }
+
 	virtual int				GetMinBurst() { return 1; }
-	virtual int				GetMaxBurst() { return 3; }
+	virtual int				GetMaxBurst() { return 6; }
 
 	virtual float			GetMinRestTime();
 	virtual float			GetMaxRestTime();
@@ -183,6 +186,12 @@ void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool
 		vecShootDir = npc->GetActualShootTrajectory( vecShootOrigin );
 	}
 
+	//Particles
+	Vector vecShootOrigin2;  //The origin of the shot 
+	QAngle	angShootDir2;    //The angle of the shot
+	GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin2, angShootDir2 );
+	DispatchParticleEffect( "muzzle_tact_shotgun", vecShootOrigin2, angShootDir2);
+
 	pOperator->FireBullets( 8, vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
 }
 
@@ -261,10 +270,10 @@ float CWeaponShotgun::GetFireRate()
 {
 	if( hl2_episodic.GetBool() && GetOwner() && GetOwner()->Classify() == CLASS_COMBINE )
 	{
-		return 0.8f;
+		return 0.6f;
 	}
 
-	return 0.7;
+	return 0.4;
 }
 
 //-----------------------------------------------------------------------------
@@ -472,7 +481,19 @@ void CWeaponShotgun::PrimaryAttack( void )
 	// Fire the bullets, and force the first shot to be perfectly accuracy
 	pPlayer->FireBullets( sk_plr_num_shotgun_pellets.GetInt(), vecSrc, vecAiming, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0, -1, -1, 0, NULL, true, true );
 	
-	pPlayer->ViewPunch( QAngle( random->RandomFloat( -2, -1 ), random->RandomFloat( -2, 2 ), 0 ) );
+	//Particle Muzzle Flash
+	DispatchParticleEffect( "muzzle_tact_shotgun", PATTACH_POINT, pPlayer->GetViewModel(), "muzzle", false);
+	
+	//Disorient the player
+	QAngle angles = pPlayer->GetLocalAngles();
+
+	angles.x += random->RandomInt( -0.5, 0.5 );
+	angles.y += random->RandomInt( -0.5, 0.5 );
+	angles.z = 0;
+
+	pPlayer->SnapEyeAngles( angles );
+
+	pPlayer->ViewPunch( QAngle( random->RandomFloat( -2.5, -1 ), random->RandomFloat( -2, 2 ), 0 ) );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_SHOTGUN, 0.2, GetOwner() );
 
@@ -499,6 +520,7 @@ void CWeaponShotgun::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::SecondaryAttack( void )
 {
+	/*
 	// Only the player fires this way so we can cast
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 
@@ -547,6 +569,7 @@ void CWeaponShotgun::SecondaryAttack( void )
 
 	m_iSecondaryAttacks++;
 	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+	*/
 }
 	
 //-----------------------------------------------------------------------------
@@ -558,6 +581,77 @@ void CWeaponShotgun::ItemPostFrame( void )
 	if (!pOwner)
 	{
 		return;
+	}
+
+	if( m_bInReload || bLowered || m_bLowered || pOwner->GetMoveType() == MOVETYPE_LADDER || m_bInChanging ){
+		cvar->FindVar("crosshair")->SetValue(0);
+	}else{
+		cvar->FindVar("crosshair")->SetValue(1);
+		cvar->FindVar("acsmod_crosshair_spread")->SetValue(GetBulletSpread().Length()*200);
+	}
+
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( GetSpeedMalus() );
+
+	if( IsChanging() && GetNextWeps() ){
+		DevMsg("Item post frame changing\n");
+		ChangingWeps( GetNextWeps() );
+		return;
+	}
+
+	//No Weapons on ladders 
+    if( pOwner->GetMoveType() == MOVETYPE_LADDER )
+        return;
+
+	if ( !bLowered && (pOwner->m_nButtons & IN_SPEED ) && !m_bInReload )
+	{
+		bLowered = true;
+		SendWeaponAnim( ACT_VM_IDLE_LOWERED );
+		m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+	}
+	else if ( bLowered && !(pOwner->m_nButtons & IN_SPEED ) )
+	{
+		bLowered = false;
+		SendWeaponAnim( ACT_VM_IDLE );
+		m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+	}
+ 
+	if ( bLowered )
+	{
+		if ( gpGlobals->curtime > m_fLoweredReady )
+		{
+			bLowered = true;
+			SendWeaponAnim( ACT_VM_IDLE_LOWERED );
+			m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+		}
+		return;
+	}
+	else if ( bLowered )
+	{
+		if ( gpGlobals->curtime > m_fLoweredReady )
+		{
+			bLowered = false;
+			SendWeaponAnim( ACT_VM_IDLE );
+			m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+		}
+		return;
+	}
+
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if(pPlayer && !engine->IsPaused())
+	{
+		float value = 0.06;
+		float timer = 0.15;
+
+		if(pPlayer->m_nButtons & IN_DUCK)
+		{
+			value /= 2;
+		}
+		//I'm drunk ?
+		float xoffset = cos( 2 * gpGlobals->curtime * timer ) * value * sin( 2 * gpGlobals->curtime * timer );
+		float yoffset = sin( 2 * gpGlobals->curtime * timer ) * value;
+ 
+		pPlayer->ViewPunch( QAngle( xoffset, yoffset, 0));
 	}
 
 	if (m_bInReload)
@@ -733,10 +827,10 @@ CWeaponShotgun::CWeaponShotgun( void )
 	m_bDelayedFire1 = false;
 	m_bDelayedFire2 = false;
 
-	m_fMinRange1		= 0.0;
-	m_fMaxRange1		= 500;
-	m_fMinRange2		= 0.0;
-	m_fMaxRange2		= 200;
+	m_fMinRange1		= 20.0;
+	m_fMaxRange1		= 1536;
+	m_fMinRange2		= 20.0;
+	m_fMaxRange2		= 1536;
 }
 
 //-----------------------------------------------------------------------------

@@ -1899,6 +1899,21 @@
     <ClCompile Include="fire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="weapon_cannon.cpp">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClCompile>
+    <ClCompile Include="weapon_epee.cpp">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClCompile>
+    <ClCompile Include="weapon_musket.cpp">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClCompile>
+    <ClCompile Include="weapon_pistolet.cpp">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClCompile>
+    <ClCompile Include="weapon_rifle.cpp">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\achievement_saverestore.h">
@@ -3712,6 +3727,12 @@
     </ClInclude>
     <ClInclude Include="..\..\public\appframework\AppFramework.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="weapon_cannon.h">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
+    </ClInclude>
+    <ClInclude Include="weapon_epee.h">
+      <Filter>Source Files\HL2 Server\Weapons</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

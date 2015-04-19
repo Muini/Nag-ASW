@@ -47,7 +47,7 @@ END_DATADESC()
 BEGIN_PREDICTION_DATA( CBaseHLCombatWeapon )
 END_PREDICTION_DATA()
 
-ConVar sk_auto_reload_time( "sk_auto_reload_time", "3", FCVAR_REPLICATED );
+ConVar sk_auto_reload_time( "sk_auto_reload_time", "30", FCVAR_REPLICATED );
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -63,7 +63,7 @@ void CBaseHLCombatWeapon::ItemHolsterFrame( void )
 	// We can't be active
 	if ( GetOwner()->GetActiveWeapon() == this )
 		return;
-
+	
 	// If it's been longer than three seconds, reload
 	if ( ( gpGlobals->curtime - m_flHolsterTime ) > sk_auto_reload_time.GetFloat() )
 	{
@@ -231,7 +231,7 @@ float	g_verticalBob;
 
 #if defined( CLIENT_DLL ) && ( !defined( HL2MP ) && !defined( PORTAL ) )
 
-#define	HL2_BOB_CYCLE_MIN	1.0f
+#define	HL2_BOB_CYCLE_MIN	1.5f
 #define	HL2_BOB_CYCLE_MAX	0.45f
 #define	HL2_BOB			0.002f
 #define	HL2_BOB_UP		0.5f
@@ -276,7 +276,7 @@ float CBaseHLCombatWeapon::CalcViewmodelBob( void )
 	//FIXME: This maximum speed value must come from the server.
 	//		 MaxSpeed() is not sufficient for dealing with sprinting - jdw
 
-	speed = clamp( speed, -320, 320 );
+	speed = clamp( speed*1.5, -320, 320 );
 
 	float bob_offset = RemapVal( speed, 0, 320, 0.0f, 1.0f );
 	
@@ -296,7 +296,7 @@ float CBaseHLCombatWeapon::CalcViewmodelBob( void )
 		cycle = M_PI + M_PI*(cycle-HL2_BOB_UP)/(1.0 - HL2_BOB_UP);
 	}
 	
-	g_verticalBob = speed*0.005f;
+	g_verticalBob = speed*0.01f;
 	g_verticalBob = g_verticalBob*0.3 + g_verticalBob*0.7*sin(cycle);
 
 	g_verticalBob = clamp( g_verticalBob, -7.0f, 4.0f );
@@ -314,8 +314,8 @@ float CBaseHLCombatWeapon::CalcViewmodelBob( void )
 		cycle = M_PI + M_PI*(cycle-HL2_BOB_UP)/(1.0 - HL2_BOB_UP);
 	}
 
-	g_lateralBob = speed*0.005f;
-	g_lateralBob = g_lateralBob*0.3 + g_lateralBob*0.7*sin(cycle);
+	g_lateralBob = speed*0.01f;
+	g_lateralBob = g_lateralBob*0.5 + g_lateralBob*0.7*sin(cycle);
 	g_lateralBob = clamp( g_lateralBob, -7.0f, 4.0f );
 	
 	//NOTENOTE: We don't use this return value in our case (need to restructure the calculation function setup!)
@@ -336,18 +336,18 @@ void CBaseHLCombatWeapon::AddViewmodelBob( CBaseViewModel *viewmodel, Vector &or
 	CalcViewmodelBob();
 
 	// Apply bob, but scaled down to 40%
-	VectorMA( origin, g_verticalBob * 0.1f, forward, origin );
+	VectorMA( origin, g_verticalBob * 0.2f, forward, origin );
 	
 	// Z bob a bit more
-	origin[2] += g_verticalBob * 0.1f;
+	origin[2] += g_verticalBob * 0.2f;
 	
 	// bob the angles
-	angles[ ROLL ]	+= g_verticalBob * 0.5f;
-	angles[ PITCH ]	-= g_verticalBob * 0.4f;
+	angles[ ROLL ]	+= g_verticalBob * 0.6f;
+	angles[ PITCH ]	-= g_verticalBob * 0.5f;
 
-	angles[ YAW ]	-= g_lateralBob  * 0.3f;
+	angles[ YAW ]	-= g_lateralBob  * 0.4f;
 
-	VectorMA( origin, g_lateralBob * 0.8f, right, origin );
+	VectorMA( origin, g_lateralBob * 0.9f, right, origin );
 }
 
 //-----------------------------------------------------------------------------
@@ -392,6 +392,15 @@ Vector CBaseHLCombatWeapon::GetBulletSpread( WeaponProficiency_t proficiency )
 {
 	Vector baseSpread = BaseClass::GetBulletSpread( proficiency );
 
+	//Pour le crosshair
+	/*
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+	if ( pPlayer )
+	{
+		SetBulletSpreadSize(baseSpread.z);
+		DevMsg("Spread : %f\n",baseSpread.z);
+	}
+	*/
 	const WeaponProficiencyInfo_t *pProficiencyValues = GetProficiencyValues();
 	float flModifier = (pProficiencyValues)[ proficiency ].spreadscale;
 	return ( baseSpread * flModifier );

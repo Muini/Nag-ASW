@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -11,6 +11,7 @@
 #include "Sprite.h"
 #include "SpriteTrail.h"
 #include "soundent.h"
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -21,6 +22,8 @@
 #define FRAG_GRENADE_GRACE_TIME_AFTER_PICKUP 1.5f
 #define FRAG_GRENADE_WARN_TIME 1.5f
 
+extern ConVar nag;
+
 const float GRENADE_COEFFICIENT_OF_RESTITUTION = 0.2f;
 
 ConVar sk_plr_dmg_fraggrenade	( "sk_plr_dmg_fraggrenade","0");
@@ -28,6 +31,7 @@ ConVar sk_npc_dmg_fraggrenade	( "sk_npc_dmg_fraggrenade","0");
 ConVar sk_fraggrenade_radius	( "sk_fraggrenade_radius", "0");
 
 #define GRENADE_MODEL "models/Weapons/w_grenade.mdl"
+#define GRENADE_MODEL_NAG "models/Weapons/w_dynamite.mdl"
 
 class CGrenadeFrag : public CBaseGrenade
 {
@@ -48,6 +52,7 @@ public:
 	void	SetTimer( float detonateDelay, float warnDelay );
 	void	SetVelocity( const Vector &velocity, const AngularImpulse &angVelocity );
 	int		OnTakeDamage( const CTakeDamageInfo &inputInfo );
+	void	Event_Killed( const CTakeDamageInfo &info );
 	void	BlipSound() { EmitSound( "Grenade.Blip" ); }
 	void	DelayThink();
 	void	VPhysicsUpdate( IPhysicsObject *pPhysics );
@@ -58,7 +63,7 @@ public:
 	bool	WasPunted( void ) const { return m_punted; }
 
 	// this function only used in episodic.
-#ifdef HL2_EPISODIC
+#if defined(HL2_EPISODIC) && 0 // FIXME: HandleInteraction() is no longer called now that base grenade derives from CBaseAnimating
 	bool	HandleInteraction(int interactionType, void *data, CBaseCombatCharacter* sourceEnt);
 #endif 
 
@@ -106,7 +111,10 @@ void CGrenadeFrag::Spawn( void )
 {
 	Precache( );
 
-	SetModel( GRENADE_MODEL );
+	if(nag.GetBool())
+		SetModel( GRENADE_MODEL_NAG );
+	else
+		SetModel( GRENADE_MODEL );
 
 	if( GetOwnerEntity() && GetOwnerEntity()->IsPlayer() )
 	{
@@ -120,7 +128,7 @@ void CGrenadeFrag::Spawn( void )
 	}
 
 	m_takedamage	= DAMAGE_YES;
-	m_iHealth		= 1;
+	m_iHealth		= 20;
 
 	SetSize( -Vector(4,4,4), Vector(4,4,4) );
 	SetCollisionGroup( COLLISION_GROUP_WEAPON );
@@ -154,32 +162,38 @@ void CGrenadeFrag::OnRestore( void )
 //-----------------------------------------------------------------------------
 void CGrenadeFrag::CreateEffects( void )
 {
-	// Start up the eye glow
-	m_pMainGlow = CSprite::SpriteCreate( "sprites/redglow1.vmt", GetLocalOrigin(), false );
-
-	int	nAttachment = LookupAttachment( "fuse" );
-
-	if ( m_pMainGlow != NULL )
+	if(nag.GetBool())
 	{
-		m_pMainGlow->FollowEntity( this );
-		m_pMainGlow->SetAttachment( this, nAttachment );
-		m_pMainGlow->SetTransparency( kRenderGlow, 255, 255, 255, 200, kRenderFxNoDissipation );
-		m_pMainGlow->SetScale( 0.2f );
-		m_pMainGlow->SetGlowProxySize( 4.0f );
+		DispatchParticleEffect( "grenade_effects", PATTACH_POINT_FOLLOW, this, "fuse", false );
+	}else{
+		// Start up the eye glow
+		m_pMainGlow = CSprite::SpriteCreate( "sprites/light_glow02.vmt", GetLocalOrigin(), false );
+
+		int	nAttachment = LookupAttachment( "fuse" );
+
+		if ( m_pMainGlow != NULL )
+		{
+			m_pMainGlow->FollowEntity( this );
+			m_pMainGlow->SetAttachment( this, nAttachment );
+			m_pMainGlow->SetTransparency( kRenderGlow, 255, 150, 50, 200, kRenderFxFlickerFast );
+			m_pMainGlow->SetScale( 0.2f );
+			m_pMainGlow->SetGlowProxySize( 4.0f );
+		}
+
+		// Start up the eye trail
+		m_pGlowTrail	= CSpriteTrail::SpriteTrailCreate( "sprites/nadelaser.vmt", GetLocalOrigin(), false );
+
+		if ( m_pGlowTrail != NULL )
+		{
+			m_pGlowTrail->FollowEntity( this );
+			m_pGlowTrail->SetAttachment( this, nAttachment );
+			m_pGlowTrail->SetTransparency( kRenderTransAdd, 255, 150, 50, 255, kRenderFxNone );
+			m_pGlowTrail->SetStartWidth( 6.0f );
+			m_pGlowTrail->SetEndWidth( 0.5f );
+			m_pGlowTrail->SetLifeTime( 1.0f );
+		}
 	}
 
-	// Start up the eye trail
-	m_pGlowTrail	= CSpriteTrail::SpriteTrailCreate( "sprites/bluelaser1.vmt", GetLocalOrigin(), false );
-
-	if ( m_pGlowTrail != NULL )
-	{
-		m_pGlowTrail->FollowEntity( this );
-		m_pGlowTrail->SetAttachment( this, nAttachment );
-		m_pGlowTrail->SetTransparency( kRenderTransAdd, 255, 0, 0, 255, kRenderFxNone );
-		m_pGlowTrail->SetStartWidth( 8.0f );
-		m_pGlowTrail->SetEndWidth( 1.0f );
-		m_pGlowTrail->SetLifeTime( 0.5f );
-	}
 }
 
 bool CGrenadeFrag::CreateVPhysics()
@@ -276,11 +290,14 @@ void CGrenadeFrag::VPhysicsUpdate( IPhysicsObject *pPhysics )
 void CGrenadeFrag::Precache( void )
 {
 	PrecacheModel( GRENADE_MODEL );
+	PrecacheModel( GRENADE_MODEL_NAG );
 
 	PrecacheScriptSound( "Grenade.Blip" );
 
-	PrecacheModel( "sprites/redglow1.vmt" );
-	PrecacheModel( "sprites/bluelaser1.vmt" );
+	PrecacheModel( "sprites/light_glow02.vmt" );
+	PrecacheModel( "sprites/nadelaser.vmt" );
+
+	PrecacheParticleSystem( "grenade_effects" );
 
 	BaseClass::Precache();
 }
@@ -368,15 +385,22 @@ int CGrenadeFrag::OnTakeDamage( const CTakeDamageInfo &inputInfo )
 {
 	// Manually apply vphysics because BaseCombatCharacter takedamage doesn't call back to CBaseEntity OnTakeDamage
 	VPhysicsTakeDamage( inputInfo );
-
+	/*
 	// Grenades only suffer blast damage and burn damage.
 	if( !(inputInfo.GetDamageType() & (DMG_BLAST|DMG_BURN) ) )
-		return 0;
+		return 0;*/
 
 	return BaseClass::OnTakeDamage( inputInfo );
 }
 
-#ifdef HL2_EPISODIC
+void CGrenadeFrag::Event_Killed( const CTakeDamageInfo &info )
+{
+	//Boom !
+	Detonate();
+	return;
+}
+
+#if defined(HL2_EPISODIC) && 0 // FIXME: HandleInteraction() is no longer called now that base grenade derives from CBaseAnimating
 extern int	g_interactionBarnacleVictimGrab; ///< usually declared in ai_interactions.h but no reason to haul all of that in here.
 extern int g_interactionBarnacleVictimBite;
 extern int g_interactionBarnacleVictimReleased;

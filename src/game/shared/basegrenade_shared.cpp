@@ -1,20 +1,22 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 // $NoKeywords: $
-//===========================================================================//
+//=============================================================================//
 #include "cbase.h"
 #include "decals.h"
 #include "basegrenade_shared.h"
 #include "shake.h"
 #include "engine/IEngineSound.h"
+#include "ammodef.h"
 
 #if !defined( CLIENT_DLL )
 
 #include "soundent.h"
 #include "entitylist.h"
 #include "GameStats.h"
+#include "gib.h"
 
 #endif
 
@@ -65,23 +67,23 @@ BEGIN_NETWORK_TABLE( CBaseGrenade, DT_BaseGrenade )
 	SendPropFloat( SENDINFO( m_flDamage ), 10, SPROP_ROUNDDOWN, 0.0, 256.0f ),
 	SendPropFloat( SENDINFO( m_DmgRadius ), 10, SPROP_ROUNDDOWN, 0.0, 1024.0f ),
 	SendPropInt( SENDINFO( m_bIsLive ), 1, SPROP_UNSIGNED ),
-//	SendPropTime( SENDINFO( m_flDetonateTime ) ),
 	SendPropEHandle( SENDINFO( m_hThrower ) ),
 
 	SendPropVector( SENDINFO( m_vecVelocity ), 0, SPROP_NOSCALE ), 
 	// HACK: Use same flag bits as player for now
-	SendPropInt			( SENDINFO(m_fFlags), PLAYER_FLAG_BITS, SPROP_UNSIGNED, SendProxy_CropFlagsToPlayerFlagBitsLength ),
+	SendPropInt( SENDINFO(m_fFlags), PLAYER_FLAG_BITS, SPROP_UNSIGNED, SendProxy_CropFlagsToPlayerFlagBitsLength ),
+	SendPropTime( SENDINFO(m_flNextAttack) ),
 #else
 	RecvPropFloat( RECVINFO( m_flDamage ) ),
 	RecvPropFloat( RECVINFO( m_DmgRadius ) ),
 	RecvPropInt( RECVINFO( m_bIsLive ) ),
-//	RecvPropTime( RECVINFO( m_flDetonateTime ) ),
 	RecvPropEHandle( RECVINFO( m_hThrower ) ),
 
 	// Need velocity from grenades to make animation system work correctly when running
 	RecvPropVector( RECVINFO(m_vecVelocity), 0, RecvProxy_LocalVelocity ),
 
 	RecvPropInt( RECVINFO( m_fFlags ) ),
+	RecvPropTime( RECVINFO(m_flNextAttack) ),
 #endif
 END_NETWORK_TABLE()
 
@@ -140,11 +142,11 @@ void CBaseGrenade::Explode( trace_t *pTrace, int bitsDamageType )
 		te->Explosion( filter, -1.0, // don't apply cl_interp delay
 			&vecAbsOrigin,
 			!( contents & MASK_WATER ) ? g_sModelIndexFireball : g_sModelIndexWExplosion,
-			m_DmgRadius * .03, 
-			25,
+			m_DmgRadius * .05,  //Scale
+			15,
 			TE_EXPLFLAG_NONE,
-			m_DmgRadius,
-			m_flDamage,
+			m_DmgRadius, //Radius
+			m_flDamage, //Magnitude
 			&vecNormal,
 			(char) pdata->game.material );
 	}
@@ -154,16 +156,31 @@ void CBaseGrenade::Explode( trace_t *pTrace, int bitsDamageType )
 		te->Explosion( filter, -1.0, // don't apply cl_interp delay
 			&vecAbsOrigin, 
 			!( contents & MASK_WATER ) ? g_sModelIndexFireball : g_sModelIndexWExplosion,
-			m_DmgRadius * .03, 
+			m_DmgRadius * .05,
 			25,
 			TE_EXPLFLAG_NONE,
 			m_DmgRadius,
+			//m_DmgRadius,
 			m_flDamage );
 	}
 
 #if !defined( CLIENT_DLL )
 	CSoundEnt::InsertSound ( SOUND_COMBAT, GetAbsOrigin(), BASEGRENADE_EXPLOSION_VOLUME, 3.0 );
 #endif
+
+	//MOD Ajout : Tire des balles partout !
+	FireBulletsInfo_t nadeBullets;
+	nadeBullets.m_iShots = 40;
+	nadeBullets.m_vecSrc = GetAbsOrigin();
+	nadeBullets.m_vecDirShooting = Vector(0,0,1);
+	nadeBullets.m_vecSpread = Vector(10,10,10);
+	nadeBullets.m_iAmmoType = GetAmmoDef()->Index( "Pellet_S" ); //Buckshot
+	nadeBullets.m_flDamage = 10;
+	nadeBullets.m_iTracerFreq = 1;
+	nadeBullets.m_pAttacker = this;
+	nadeBullets.m_bAlreadyInterract = true;
+
+	FireBullets( nadeBullets );
 
 	// Use the thrower's position as the reported position
 	Vector vecReported = m_hThrower ? m_hThrower->GetAbsOrigin() : vec3_origin;
@@ -174,6 +191,27 @@ void CBaseGrenade::Explode( trace_t *pTrace, int bitsDamageType )
 	RadiusDamage( info, GetAbsOrigin(), m_DmgRadius, CLASS_NONE, NULL );
 
 	UTIL_DecalTrace( pTrace, "Scorch" );
+
+	if(pTrace->fraction <= 1)
+	{
+		if( random->RandomInt(0,3)== 0 )
+		{
+			int sparkCount = random->RandomInt(0,3);
+
+			for ( int i = 0; i < sparkCount; i++ )
+			{
+				QAngle angles;
+				VectorAngles( pTrace->plane.normal, angles );
+				Create( "spark_shower", GetAbsOrigin(), angles, NULL );
+			}
+		}
+		
+		int randomGib = random->RandomInt(1,5);
+		CGib::SpawnSpecificGibs( this, randomGib, 600, 2400, "models/props_debris/impact_debris1.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, randomGib, 600, 2400, "models/props_debris/impact_debris2.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, randomGib, 600, 2400, "models/props_debris/impact_debris3.mdl", 5 );
+		CGib::SpawnSpecificGibs( this, randomGib, 600, 2400, "models/props_debris/impact_debris4.mdl", 5 );
+	}
 
 	SetThink( &CBaseGrenade::SUB_Remove );
 	SetTouch( NULL );
@@ -209,7 +247,7 @@ void CBaseGrenade::Explode( trace_t *pTrace, int bitsDamageType )
 void CBaseGrenade::Smoke( void )
 {
 	Vector vecAbsOrigin = GetAbsOrigin();
-	if ( UTIL_PointContents ( vecAbsOrigin, MASK_WATER ) & MASK_WATER )
+	if ( UTIL_PointContents ( vecAbsOrigin, MASK_WATER ) & CONTENTS_WATER )
 	{
 		UTIL_Bubbles( vecAbsOrigin - Vector( 64, 64, 64 ), vecAbsOrigin + Vector( 64, 64, 64 ), 100 );
 	}
