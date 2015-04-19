@@ -6,6 +6,7 @@
 
 #define ENV_PROJECTEDTEXTURE_STARTON			(1<<0)
 #define ENV_PROJECTEDTEXTURE_ALWAYSUPDATE		(1<<1)
+#define ENV_PROJECTEDTEXTURE_VOLUMETRIC			(1<<2)
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -38,6 +39,8 @@ public:
 	void InputSetLightColor( inputdata_t &inputdata );
 	void InputSetSpotlightTexture( inputdata_t &inputdata );
 	void InputSetAmbient( inputdata_t &inputdata );
+	void InputEnableVolumetrics( inputdata_t &inputdata );
+	void InputDisableVolumetrics( inputdata_t &inputdata );
 
 	void InitialThink( void );
 
@@ -64,6 +67,7 @@ private:
 	CNetworkVar( int, m_nShadowQuality );
 	CNetworkVar( float, m_flProjectionSize );
 	CNetworkVar( float, m_flRotation );
+	CNetworkVar( bool, m_bEnableVolumetrics );
 };
 
 

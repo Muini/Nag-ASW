@@ -1896,6 +1896,9 @@
     <ClCompile Include="..\shared\hl2\survival_gamerules.cpp">
       <Filter>Source Files\HL2 Server\Gamerules</Filter>
     </ClCompile>
+    <ClCompile Include="fire.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\achievement_saverestore.h">

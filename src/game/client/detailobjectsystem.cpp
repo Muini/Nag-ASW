@@ -24,10 +24,12 @@
 #include "tier1/callqueue.h"
 #include "c_world.h"
 
-#ifdef USE_DETAIL_SHAPES
+#define USE_DETAIL_SHAPES
+
+//#ifdef USE_DETAIL_SHAPES
 #include "engine/ivdebugoverlay.h"
 #include "playerenumerator.h"
-#endif
+//#endif
 
 #include "materialsystem/imaterialsystemhardwareconfig.h"
 
@@ -42,12 +44,12 @@
 struct model_t;
 
 
-#if defined( USE_DETAIL_SHAPES ) 
-ConVar cl_detail_max_sway( "cl_detail_max_sway", "0", FCVAR_ARCHIVE, "Amplitude of the detail prop sway" );
-ConVar cl_detail_avoid_radius( "cl_detail_avoid_radius", "0", FCVAR_ARCHIVE, "radius around detail sprite to avoid players" );
-ConVar cl_detail_avoid_force( "cl_detail_avoid_force", "0", FCVAR_ARCHIVE, "force with which to avoid players ( in units, percentage of the width of the detail sprite )" );
-ConVar cl_detail_avoid_recover_speed( "cl_detail_avoid_recover_speed", "0", FCVAR_ARCHIVE, "how fast to recover position after avoiding players" );
-#endif
+//#if defined( USE_DETAIL_SHAPES ) 
+ConVar cl_detail_max_sway( "cl_detail_max_sway", "10", FCVAR_ARCHIVE, "Amplitude of the detail prop sway" );
+ConVar cl_detail_avoid_radius( "cl_detail_avoid_radius", "32", FCVAR_ARCHIVE, "radius around detail sprite to avoid players" );
+ConVar cl_detail_avoid_force( "cl_detail_avoid_force", "0.5", FCVAR_ARCHIVE, "force with which to avoid players ( in units, percentage of the width of the detail sprite )" );
+ConVar cl_detail_avoid_recover_speed( "cl_detail_avoid_recover_speed", "1", FCVAR_ARCHIVE, "how fast to recover position after avoiding players" );
+//#endif
 
 ConVar r_FlashlightDetailProps( "r_FlashlightDetailProps", "1", 0, "Enable a flashlight drawing pass on detail props. 0 = off, 1 = single pass, 2 = multipass (multipass is PC ONLY)" );
 ConVar r_ThreadedDetailProps( "r_threadeddetailprops", "1", 0, "enable threading of detail prop drawing" );

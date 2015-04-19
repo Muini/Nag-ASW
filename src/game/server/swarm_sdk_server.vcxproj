@@ -450,6 +450,7 @@ exit 1
       </PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="filters.cpp" />
+    <ClCompile Include="fire.cpp" />
     <ClCompile Include="fire_smoke.cpp" />
     <ClCompile Include="fish.cpp" />
     <ClCompile Include="flex_expresser.cpp" />

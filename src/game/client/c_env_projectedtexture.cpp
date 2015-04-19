@@ -44,6 +44,7 @@ IMPLEMENT_CLIENTCLASS_DT( C_EnvProjectedTexture, DT_EnvProjectedTexture, CEnvPro
 	RecvPropInt(	 RECVINFO( m_nShadowQuality )	),
 	RecvPropFloat(	 RECVINFO( m_flProjectionSize )	),
 	RecvPropFloat(	 RECVINFO( m_flRotation )	),
+	RecvPropBool(	 RECVINFO( m_bEnableVolumetrics )	),
 END_RECV_TABLE()
 
 C_EnvProjectedTexture *C_EnvProjectedTexture::Create( )
@@ -51,18 +52,19 @@ C_EnvProjectedTexture *C_EnvProjectedTexture::Create( )
 	C_EnvProjectedTexture *pEnt = new C_EnvProjectedTexture();
 
 	pEnt->m_flNearZ = 4.0f;
-	pEnt->m_flFarZ = 2000.0f;
+	pEnt->m_flFarZ = 2048.0f;
 //	strcpy( pEnt->m_SpotlightTextureName, "particle/rj" );
 	pEnt->m_bLightWorld = true;
 	pEnt->m_bLightOnlyTarget = false;
-	pEnt->m_bSimpleProjection = false;
+	pEnt->m_bSimpleProjection = true;
 	pEnt->m_nShadowQuality = 1;
-	pEnt->m_flLightFOV = 10.0f;
+	pEnt->m_flLightFOV = 45.0f;
 	pEnt->m_LightColor.r = 255;
 	pEnt->m_LightColor.g = 255;
 	pEnt->m_LightColor.b = 255;
 	pEnt->m_LightColor.a = 255;
-	pEnt->m_bEnableShadows = false;
+	pEnt->m_bEnableShadows = true;
+	pEnt->m_bEnableVolumetrics = false;
 	pEnt->m_flColorTransitionTime = 1.0f;
 	pEnt->m_bCameraSpace = false;
 	pEnt->SetAbsAngles( QAngle( 90, 0, 0 ) );
@@ -245,7 +247,19 @@ void C_EnvProjectedTexture::UpdateLight( void )
 		}
 		else
 		{
-			AngleVectors( GetAbsAngles(), &vForward, &vRight, &vUp );
+			// VXP: Fixing targeting
+			Vector vecToTarget;
+			QAngle vecAngles;
+			if ( m_hTargetEntity == NULL )
+			{
+				vecAngles = GetAbsAngles();
+			}
+			else
+			{
+				vecToTarget = m_hTargetEntity->GetAbsOrigin() - GetAbsOrigin();
+				VectorAngles( vecToTarget, vecAngles );
+			}
+			AngleVectors( vecAngles, &vForward, &vRight, &vUp );
 		}
 
 		state.m_fHorizontalFOVDegrees = m_flLightFOV;
@@ -264,7 +278,7 @@ void C_EnvProjectedTexture::UpdateLight( void )
 			// get the half-widths of the near and far planes, 
 			// based on the FOV which is in degrees. Remember that
 			// on planet Valve, x is forward, y left, and z up. 
-			const float tanHalfAngle = tan( m_flLightFOV * ( M_PI/180.0f ) * 0.5f );
+			const float tanHalfAngle = tan( m_flLightFOV * 2 * ( M_PI/180.0f ) * 0.5f );
 			const float halfWidthNear = tanHalfAngle * m_flNearZ;
 			const float halfWidthFar = tanHalfAngle * m_flFarZ;
 			// now we can build coordinates in local space: the near rectangle is eg 
@@ -354,9 +368,9 @@ void C_EnvProjectedTexture::UpdateLight( void )
 		state.m_nSpotlightTextureFrame = m_nSpotlightTextureFrame;
 		state.m_flProjectionSize = m_flProjectionSize;
 		state.m_flProjectionRotation = m_flRotation;
+		state.m_bVolumetric = m_bEnableVolumetrics;
 
-		state.m_bUberlight = true;
-		state.m_bVolumetric = true;
+		state.m_bUberlight = false;
 
 		state.m_nShadowQuality = m_nShadowQuality; // Allow entity to affect shadow quality
 

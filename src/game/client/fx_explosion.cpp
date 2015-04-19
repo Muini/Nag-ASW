@@ -18,6 +18,8 @@
 #include "fx_quad.h"
 #include "fx_line.h"
 #include "fx_water.h"
+#include "particle_parse.h"
+#include "particles/particles.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -205,11 +207,11 @@ void C_BaseExplosionEffect::Create( const Vector &position, float force, float s
 	{
 		// UNDONE: Make core size parametric to scale or remove scale?
 		CreateCore();
+		CreateDebris();
+		CreateDynamicLight();
+		CreateMisc();
 	}
 
-	CreateDebris();
-	CreateDynamicLight();
-	CreateMisc();
 }
 
 //-----------------------------------------------------------------------------
@@ -275,6 +277,17 @@ void C_BaseExplosionEffect::CreateCore( void )
 	// Rescale to a character range
 	luminosity *= 255;
 
+	QAngle vecAngles;
+
+	if ( UTIL_PointContents( m_vecOrigin, MASK_WATER ) & CONTENTS_WATER )
+	{
+		DispatchParticleEffect( "underwater_explosion", m_vecOrigin, vecAngles + QAngle(0, 90, 0) );
+	}
+	else
+	{
+		DispatchParticleEffect( "floor_explosion", m_vecOrigin, vecAngles + QAngle(0, 90, 0) );
+	}
+	/*
 	if ( (m_fFlags & TE_EXPLFLAG_NOFIREBALLSMOKE) == 0 )
 	{
 		//
@@ -578,6 +591,7 @@ void C_BaseExplosionEffect::CreateCore( void )
 			pParticle->m_flRollDelta	= random->RandomFloat( -16.0f, 16.0f );
 		}
 	}
+	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -585,6 +599,7 @@ void C_BaseExplosionEffect::CreateCore( void )
 //-----------------------------------------------------------------------------
 void C_BaseExplosionEffect::CreateDebris( void )
 {
+	/*
 	if ( m_fFlags & TE_EXPLFLAG_NOPARTICLES )
 		return;
 
@@ -712,6 +727,7 @@ void C_BaseExplosionEffect::CreateDebris( void )
 		pParticle->m_uchColor[2] = MIN( 1.0f, 0.25f*colorRamp )*255.0f;
 	}
 #endif // !_XBOX
+	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -726,19 +742,33 @@ void C_BaseExplosionEffect::CreateMisc( void )
 //-----------------------------------------------------------------------------
 void C_BaseExplosionEffect::CreateDynamicLight( void )
 {
-	if ( m_fFlags & TE_EXPLFLAG_DLIGHT )
-	{
-		dlight_t *dl = effects->CL_AllocDlight( 0 );
-		
-		VectorCopy (m_vecOrigin, dl->origin);
-		
-		dl->decay	= 200;
-		dl->radius	= 255 * m_flScale;
-		dl->color.r = 255;
-		dl->color.g = 220;
-		dl->color.b = 128;
-		dl->die		= gpGlobals->curtime + 0.1f;
-	}
+	Vector vAttachment, vAng;
+	QAngle angles;
+	AngleVectors( angles, &vAng );
+	vAttachment += vAng * 2;
+
+	dlight_t *dl = effects->CL_AllocDlight( 0 );
+	
+	VectorCopy (m_vecOrigin, dl->origin);
+
+	dl->origin = m_vecOrigin;
+	dl->radius = random->RandomInt( 512, 512 ); // radius of flash
+	dl->decay = dl->radius / 0.3f;  // original radius is 0.05f; **needed distance from a wall**
+	dl->die = gpGlobals->curtime + 0.5f;  // FIX ME: time causes somewhat weird lighting please adjust
+	dl->color.r = 255;
+	dl->color.g = 190;
+	dl->color.b = 100;
+	dl->color.exponent = 5;
+	
+	dlight_t *el = effects->CL_AllocElight( 0 );
+
+	el->origin = m_vecOrigin;
+	el->radius = random->RandomInt( 256.0f, 256.0f ); 
+	el->decay = el->radius / 0.3f;
+	el->die = gpGlobals->curtime + 0.25f;
+	el->color.r = 255;
+	el->color.g = 190;
+	el->color.b = 100;
 }
 
 //-----------------------------------------------------------------------------
@@ -1053,7 +1083,7 @@ void C_WaterExplosionEffect::CreateCore( void )
 	lineData.m_vecStartVelocity = vec3_origin;
 
 	lineData.m_vecEnd = end;
-	lineData.m_vecEndVelocity = Vector(0,0,random->RandomFloat( 650, 750 ));
+	lineData.m_vecEndVelocity = Vector(0,0,random->RandomFloat( 650, 800 ));
 
 	FX_AddLine( lineData );
 

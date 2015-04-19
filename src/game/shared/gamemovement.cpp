@@ -60,6 +60,17 @@ ConVar player_limit_jump_speed( "player_limit_jump_speed", "1", FCVAR_REPLICATED
 // duck controls. Its value is meaningless anytime we don't have the options window open.
 ConVar option_duck_method("option_duck_method", "1", FCVAR_REPLICATED|FCVAR_ARCHIVE );// 0 = HOLD to duck, 1 = Duck is a toggle
 
+ConVar acsmod_jumpheight ("acsmod_jumpheight", "240", FCVAR_CHEAT ); //268 ...
+ConVar acsmod_walljump ("acsmod_walljump", "1", FCVAR_CHEAT | FCVAR_ARCHIVE );
+ConVar acsmod_doublejump ("acsmod_doublejump", "0", FCVAR_CHEAT );
+ConVar acsmod_edgeclimbing ("acsmod_edgeclimbing", "0", FCVAR_CHEAT );
+
+ConVar cl_viewbob_enabled	( "cl_viewbob_enabled", "1", 0, "Oscillation Toggle", true, 0, true, 1 );
+ConVar cl_viewbob_timer		( "cl_viewbob_timer", "5", 0, "Speed of Oscillation");
+ConVar cl_viewbob_scale_x	( "cl_viewbob_scale_x", "0.0", 0, "Magnitude of Oscillation");
+ConVar cl_viewbob_scale_y	( "cl_viewbob_scale_y", "0.07", 0, "Magnitude of Oscillation");
+ConVar cl_viewbob_scale_z	( "cl_viewbob_scale_z", "0.18", 0, "Magnitude of Oscillation");
+
 // [MD] I'll remove this eventually. For now, I want the ability to A/B the optimizations.
 bool g_bMovementOptimizations = true;
 
@@ -2627,22 +2638,23 @@ bool CGameMovement::CheckJumpButton( void )
 	}
 
 	float flMul;
+	/*
 	if ( g_bMovementOptimizations )
 	{
-#if defined(HL2_DLL) || defined(HL2_CLIENT_DLL)
+#if defined(HL2_DLL) || defined(HL2_CLIENT_DLL)*/
 		Assert( sv_gravity.GetFloat() == 600.0f );
-		flMul = 160.0f;	// approx. 21 units.
+		flMul = acsmod_jumpheight.GetFloat();	// approx. 21 units.
+		/*
 #else
 		Assert( sv_gravity.GetFloat() == 800.0f );
 		flMul = 268.3281572999747f;
 #endif
-
 	}
 	else
 	{
 		flMul = sqrt(2 * sv_gravity.GetFloat() * GAMEMOVEMENT_JUMP_HEIGHT);
 	}
-
+	*/
 	// Acclerate upward
 	// If we are ducking...
 	float startz = mv->m_vecVelocity[2];

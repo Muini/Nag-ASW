@@ -78,19 +78,20 @@ Vector GetTracerOrigin( const CEffectData &data )
 //-----------------------------------------------------------------------------
 void TracerCallback( const CEffectData &data )
 {
+	/*
 	if ( !C_BasePlayer::HasAnyLocalPlayer() )
 		return;
 
 	if ( !r_drawtracers.GetBool() )
 		return;
-
+	
 	if ( !r_drawtracers_firstperson.GetBool() )
 	{
 		C_BaseViewModel *pViewModel = ToBaseViewModel(data.GetEntity());
 		if ( pViewModel )
 			return;
 	}
-
+	
 	// Grab the data
 	Vector vecStart = GetTracerOrigin( data );
 	float flVelocity = data.m_flScale;
@@ -122,13 +123,49 @@ void TracerCallback( const CEffectData &data )
 
 	// Do tracer effect
 	FX_Tracer( (Vector&)vecStart, (Vector&)data.m_vOrigin, flVelocity, bWhiz );
-}
+	*/
+	C_BasePlayer *player = C_BasePlayer::GetLocalPlayer();
+	if ( !player )
+		return;
 
+	// Grab the data
+	Vector vecStart = GetTracerOrigin( data );
+	float flVelocity = data.m_flScale;
+	bool bWhiz = (data.m_fFlags & TRACER_FLAG_WHIZ);
+	int iEntIndex = data.entindex();
+
+	if ( iEntIndex && iEntIndex == player->index )
+	{
+		Vector	foo = data.m_vStart;
+		QAngle	vangles;
+		Vector	vforward, vright, vup;
+
+		engine->GetViewAngles( vangles );
+		AngleVectors( vangles, &vforward, &vright, &vup );
+
+		VectorMA( data.m_vStart, 4, vright, foo );
+		foo[2] -= 0.5f;
+
+		FX_PlayerTracer( foo, (Vector&)data.m_vOrigin );
+		return;
+	}
+	
+	// Use default velocity if none specified
+	if ( !flVelocity )
+	{
+		flVelocity = TRACER_SPEED;
+	}
+
+	// Do tracer effect
+	FX_Tracer( (Vector&)vecStart, (Vector&)data.m_vOrigin, flVelocity, bWhiz );
+}
+/*
 DECLARE_CLIENT_EFFECT_BEGIN( Tracer, TracerCallback )
 	PRECACHE( MATERIAL, "effects/spark" )
 	PRECACHE( GAMESOUND, "Bullets.DefaultNearmiss" )
 DECLARE_CLIENT_EFFECT_END()
-
+*/
+DECLARE_CLIENT_EFFECT( Tracer, TracerCallback );
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -136,12 +173,13 @@ static int s_nWeaponTracerIndex;
 
 void ParticleTracerCallback( const CEffectData &data )
 {
+	/*
 	if ( !C_BasePlayer::HasAnyLocalPlayer() )
 		return;
 
 	if ( !r_drawtracers.GetBool() )
 		return;
-
+	
 	if ( !r_drawtracers_firstperson.GetBool() )
 	{
 		C_BaseViewModel *pViewModel = ToBaseViewModel(data.GetEntity());
@@ -198,13 +236,46 @@ void ParticleTracerCallback( const CEffectData &data )
 	{
 		Vector vecStart = data.m_vStart;
 		FX_TracerSound( vecStart, vecEnd, TRACER_TYPE_DEFAULT );	
+	}*/
+	C_BasePlayer *player = C_BasePlayer::GetLocalPlayer();
+	if ( !player )
+		return;
+
+	// Grab the data
+	Vector vecStart = GetTracerOrigin( data );
+	Vector vecEnd = data.m_vOrigin;
+
+	// Adjust view model tracers
+	C_BaseEntity *pEntity = data.GetEntity();
+	if ( data.entindex() && data.entindex() == player->index )
+	{
+		QAngle	vangles;
+		Vector	vforward, vright, vup;
+
+		engine->GetViewAngles( vangles );
+		AngleVectors( vangles, &vforward, &vright, &vup );
+
+		VectorMA( data.m_vStart, 4, vright, vecStart );
+		vecStart[2] -= 0.5f;
+	}
+
+	// Create the particle effect
+	QAngle vecAngles;
+	Vector vecToEnd = vecEnd - vecStart;
+	VectorNormalize(vecToEnd);
+	VectorAngles( vecToEnd, vecAngles );
+	DispatchParticleEffect( data.m_nHitBox, vecStart, vecEnd, vecAngles, pEntity );
+
+	if ( data.m_fFlags & TRACER_FLAG_WHIZ )
+	{
+		FX_TracerSound( vecStart, vecEnd, TRACER_TYPE_DEFAULT );	
 	}
 }
-
+/*
 DECLARE_CLIENT_EFFECT_BEGIN( ParticleTracer, ParticleTracerCallback );
 	PRECACHE_INDEX( PARTICLE_SYSTEM, "weapon_tracers", s_nWeaponTracerIndex )
-DECLARE_CLIENT_EFFECT_END()
-
+DECLARE_CLIENT_EFFECT_END()*/
+DECLARE_CLIENT_EFFECT( ParticleTracer, ParticleTracerCallback );
 
 //-----------------------------------------------------------------------------
 // Purpose: 

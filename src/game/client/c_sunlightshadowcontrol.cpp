@@ -16,7 +16,7 @@
 
 
 ConVar cl_sunlight_ortho_size("cl_sunlight_ortho_size", "0.0", FCVAR_CHEAT, "Set to values greater than 0 for ortho view render projections.");
-ConVar cl_sunlight_depthbias( "cl_sunlight_depthbias", "0.02" );
+ConVar cl_sunlight_depthbias( "cl_sunlight_depthbias", "0.001" );
 
 //------------------------------------------------------------------------------
 // Purpose : Sunlights shadow control entity
@@ -167,15 +167,15 @@ void C_SunlightShadowControl::ClientThink()
 		BasisToQuaternion( vForward, vRight, vUp, state.m_quatOrientation );
 
 		state.m_fQuadraticAtten = 0.0f;
-		state.m_fLinearAtten = m_flSunDistance / 2.0f;
+		state.m_fLinearAtten = m_flSunDistance * 2.0f; //m_flSunDistance / 2.0f;
 		state.m_fConstantAtten = 0.0f;
-		state.m_FarZAtten = m_flSunDistance + 300.0f;
+		state.m_FarZAtten = m_flSunDistance * 2.0f; //m_flSunDistance + 300.0f;
 		state.m_Color[0] = m_CurrentLinearFloatLightColor.x * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[1] = m_CurrentLinearFloatLightColor.y * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[2] = m_CurrentLinearFloatLightColor.z * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[3] = 0.0f; // fixme: need to make ambient work m_flAmbient;
 		state.m_NearZ = fpmax( 4.0f, m_flSunDistance - m_flNearZ );
-		state.m_FarZ = m_flSunDistance + 300.0f;
+		state.m_FarZ = m_flSunDistance * 2.0f; //m_flSunDistance + 300.0f;
 
 		float flOrthoSize = cl_sunlight_ortho_size.GetFloat();
 
@@ -192,7 +192,7 @@ void C_SunlightShadowControl::ClientThink()
 			state.m_bOrtho = false;
 		}
 
-		state.m_flShadowSlopeScaleDepthBias = 2;
+		state.m_flShadowSlopeScaleDepthBias = 1.0f;
 		state.m_flShadowDepthBias = cl_sunlight_depthbias.GetFloat();
 		state.m_bEnableShadows = m_bEnableShadows;
 		state.m_pSpotlightTexture = m_SpotlightTexture;

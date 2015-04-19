@@ -1,14 +1,14 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //=============================================================================//
 
 #include "cbase.h"
-#include "NPCEvent.h"
+#include "npcevent.h"
 #include "basehlcombatweapon_shared.h"
 #include "basecombatcharacter.h"
-#include "AI_BaseNPC.h"
+#include "ai_basenpc.h"
 #include "player.h"
 #include "gamerules.h"
 #include "in_buttons.h"
@@ -18,8 +18,8 @@
 #include "engine/IEngineSound.h"
 #include "IEffects.h"
 #include "te_effect_dispatch.h"
-#include "sprite.h"
-#include "spritetrail.h"
+#include "Sprite.h"
+#include "SpriteTrail.h"
 #include "beam_shared.h"
 #include "rumble_shared.h"
 #include "gamestats.h"
@@ -142,6 +142,8 @@ unsigned int CCrossbowBolt::PhysicsSolidMaskForEntity() const
 //-----------------------------------------------------------------------------
 bool CCrossbowBolt::CreateSprites( void )
 {
+	return false;
+	/*
 	// Start up the eye glow
 	m_pGlowSprite = CSprite::SpriteCreate( "sprites/light_glow02_noz.vmt", GetLocalOrigin(), false );
 
@@ -154,6 +156,7 @@ bool CCrossbowBolt::CreateSprites( void )
 	}
 
 	return true;
+	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -167,7 +170,7 @@ void CCrossbowBolt::Spawn( void )
 	SetMoveType( MOVETYPE_FLYGRAVITY, MOVECOLLIDE_FLY_CUSTOM );
 	UTIL_SetSize( this, -Vector(0.3f,0.3f,0.3f), Vector(0.3f,0.3f,0.3f) );
 	SetSolid( SOLID_BBOX );
-	SetGravity( 0.05f );
+	SetGravity( 1.0f );
 	
 	// Make sure we're updated if we're underwater
 	UpdateWaterState();
@@ -177,7 +180,7 @@ void CCrossbowBolt::Spawn( void )
 	SetThink( &CCrossbowBolt::BubbleThink );
 	SetNextThink( gpGlobals->curtime + 0.1f );
 	
-	CreateSprites();
+	//CreateSprites();
 
 	// Make us glow until we've hit the wall
 	m_nSkin = BOLT_SKIN_GLOW;
@@ -190,9 +193,6 @@ void CCrossbowBolt::Precache( void )
 
 	// This is used by C_TEStickyBolt, despte being different from above!!!
 	PrecacheModel( "models/crossbow_bolt.mdl" );
-
-	PrecacheEffect( "BoltImpact" );
-	PrecacheEffect( "CrossbowLoad" );
 
 	PrecacheModel( "sprites/light_glow02_noz.vmt" );
 }
@@ -243,6 +243,16 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 				gamestats->Event_WeaponHit( pPlayer, true, "weapon_crossbow", dmgInfo );
 			}
 
+			CEffectData	data;
+
+			data.m_vOrigin = tr.endpos;
+			data.m_vNormal = vecNormalizedVel;
+			data.m_nEntIndex = tr.fraction != 1.0f;
+
+			//DispatchEffect( "BoltImpact", data );
+
+			UTIL_ImpactTrace( &tr, DMG_BULLET );
+
 		}
 		else
 		{
@@ -250,6 +260,8 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 			CalculateMeleeDamageForce( &dmgInfo, vecNormalizedVel, tr.endpos, 0.7f );
 			dmgInfo.SetDamagePosition( tr.endpos );
 			pOther->DispatchTraceAttack( dmgInfo, vecNormalizedVel, &tr );
+
+			UTIL_ImpactTrace( &tr, DMG_BULLET );
 		}
 
 		ApplyMultiDamage();
@@ -278,12 +290,12 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 		AngleVectors( GetAbsAngles(), &vForward );
 		VectorNormalize ( vForward );
 
-		UTIL_TraceLine( GetAbsOrigin(),	GetAbsOrigin() + vForward * 128, MASK_BLOCKLOS, pOther, COLLISION_GROUP_NONE, &tr2 );
+		UTIL_TraceLine( GetAbsOrigin(),	GetAbsOrigin() + vForward * 128, MASK_BLOCKLOS, pOther, COLLISION_GROUP_INTERACTIVE_DEBRIS, &tr2 );
 
 		if ( tr2.fraction != 1.0f )
 		{
-//			NDebugOverlay::Box( tr2.endpos, Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), 0, 255, 0, 0, 10 );
-//			NDebugOverlay::Box( GetAbsOrigin(), Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), 0, 0, 255, 0, 10 );
+			//NDebugOverlay::Box( tr2.endpos, Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), 0, 255, 0, 0, 10 );
+			//NDebugOverlay::Box( GetAbsOrigin(), Vector( -16, -16, -16 ), Vector( 16, 16, 16 ), 0, 0, 255, 0, 10 );
 
 			if ( tr2.m_pEnt == NULL || ( tr2.m_pEnt && tr2.m_pEnt->GetMoveType() == MOVETYPE_NONE ) )
 			{
@@ -294,6 +306,8 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 				data.m_nEntIndex = tr2.fraction != 1.0f;
 			
 				DispatchEffect( "BoltImpact", data );
+
+				UTIL_ImpactTrace( &tr, DMG_BULLET );
 			}
 		}
 		
@@ -371,12 +385,12 @@ void CCrossbowBolt::BoltTouch( CBaseEntity *pOther )
 					m_pGlowSprite->FadeAndDie( 3.0f );
 				}
 			}
-			
+			/*
 			// Shoot some sparks
-			if ( UTIL_PointContents( GetAbsOrigin(), CONTENTS_WATER))
+			if ( UTIL_PointContents( GetAbsOrigin() ) != CONTENTS_WATER)
 			{
 				g_pEffects->Sparks( GetAbsOrigin() );
-			}
+			}*/
 		}
 		else
 		{
@@ -442,6 +456,8 @@ public:
 	virtual void	Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatCharacter *pOperator );
 	virtual bool	SendWeaponAnim( int iActivity );
 	virtual bool	IsWeaponZoomed() { return m_bInZoom; }
+
+	float GetSpeedMalus() { return 0.8f; }
 	
 	bool	ShouldDisplayHUDHint() { return true; }
 
@@ -455,6 +471,7 @@ private:
 	void	SetSkin( int skinNum );
 	void	CheckZoomToggle( void );
 	void	FireBolt( void );
+	void	FireSniperBolt( void );
 	void	ToggleZoom( void );
 	
 	// Various states for the crossbow's charger
@@ -523,8 +540,6 @@ void CWeaponCrossbow::Precache( void )
 	PrecacheScriptSound( "Weapon_Crossbow.BoltHitWorld" );
 	PrecacheScriptSound( "Weapon_Crossbow.BoltSkewer" );
 
-	PrecacheEffect( "CrossbowLoad" );
-	
 	PrecacheModel( CROSSBOW_GLOW_SPRITE );
 	PrecacheModel( CROSSBOW_GLOW_SPRITE2 );
 
@@ -536,10 +551,10 @@ void CWeaponCrossbow::Precache( void )
 //-----------------------------------------------------------------------------
 void CWeaponCrossbow::PrimaryAttack( void )
 {
-	if ( m_bInZoom && g_pGameRules->IsMultiplayer() )
+	if ( m_bInZoom /*&& g_pGameRules->IsMultiplayer()*/ )
 	{
-//		FireSniperBolt();
-		FireBolt();
+		FireSniperBolt();
+//		FireBolt();
 	}
 	else
 	{
@@ -559,6 +574,61 @@ void CWeaponCrossbow::PrimaryAttack( void )
 	}
 }
 
+void CWeaponCrossbow::FireSniperBolt( void )
+{
+#ifndef CLIENT_DLL
+	//Only the player fires this way so we can cast safely.
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+	if (!pPlayer)
+	{
+		return;
+	}
+
+	if ( gpGlobals->curtime >= m_flNextPrimaryAttack )
+	{
+		// If my clip is empty (and I use clips) start reload
+		if ( !m_iClip1 ) 
+		{
+			Reload();
+			return;
+		}
+
+		// MUST call sound before removing a round from the clip of a CMachineGun dvs: does this apply to the sniper rifle? I don't know.
+		WeaponSound(SINGLE);
+
+		pPlayer->DoMuzzleFlash();
+
+		SendWeaponAnim( ACT_VM_PRIMARYATTACK );
+
+		// player "shoot" animation
+		pPlayer->SetAnimation( PLAYER_ATTACK1 );
+
+		// Don't fire again until fire animation has completed
+		m_flNextPrimaryAttack = gpGlobals->curtime + SequenceDuration();
+		m_iClip1 = m_iClip1 - 1;
+
+		Vector vecSrc	 = pPlayer->Weapon_ShootPosition();
+		Vector vecAiming = pPlayer->GetAutoaimVector( AUTOAIM_5DEGREES );	
+
+		// Fire the bullets
+		pPlayer->FireBullets( 1, vecSrc, vecAiming, Vector(0,0,0), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 4 );
+
+		//CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), 600, 0.2 );
+
+		QAngle vecPunch(random->RandomFloat( -10, 10 ), 0, 0);
+		pPlayer->ViewPunch(vecPunch);
+
+		// Indicate out of ammo condition if we run out of ammo.
+		if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
+		{
+			pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
+		}
+	}
+
+	// Register a muzzleflash for the AI.
+	//pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+#endif
+}
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -746,6 +816,11 @@ void CWeaponCrossbow::ToggleZoom( void )
 		if ( pPlayer->SetFOV( this, 0, 0.2f ) )
 		{
 			m_bInZoom = false;
+
+			CSingleUserRecipientFilter filter(pPlayer);
+			UserMessageBegin(filter, "ShowScope");
+				WRITE_BYTE(0);
+			MessageEnd();
 		}
 	}
 	else
@@ -753,6 +828,11 @@ void CWeaponCrossbow::ToggleZoom( void )
 		if ( pPlayer->SetFOV( this, 20, 0.1f ) )
 		{
 			m_bInZoom = true;
+
+			CSingleUserRecipientFilter filter(pPlayer);
+			UserMessageBegin(filter, "ShowScope");
+				WRITE_BYTE(1);
+			MessageEnd();
 		}
 	}
 }

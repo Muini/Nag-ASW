@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ====
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: The Half-Life 2 game rules, such as the relationship tables and ammo
 //			damage cvars.
@@ -138,6 +138,7 @@ ConVar	sk_dmg_elecbullet		( "sk_dmg_elecbullet","0", FCVAR_REPLICATED );
 ConVar	sk_dmg_npc_elecbullet	( "sk_dmg_npc_elecbullet","0", FCVAR_REPLICATED );
 ConVar	sk_max_elecbullet		( "sk_max_elecbullet","0", FCVAR_REPLICATED);
 
+
 ConVar	sk_plr_dmg_ar2			( "sk_plr_dmg_ar2","0", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_ar2			( "sk_npc_dmg_ar2","0", FCVAR_REPLICATED);
 ConVar	sk_max_ar2				( "sk_max_ar2","0", FCVAR_REPLICATED);
@@ -155,6 +156,10 @@ ConVar	sk_plr_dmg_smg1			( "sk_plr_dmg_smg1","0", FCVAR_REPLICATED );
 ConVar	sk_npc_dmg_smg1			( "sk_npc_dmg_smg1","0", FCVAR_REPLICATED);
 ConVar	sk_max_smg1				( "sk_max_smg1","0", FCVAR_REPLICATED);
 
+ConVar	sk_plr_dmg_smg2			( "sk_plr_dmg_smg2","0", FCVAR_REPLICATED );
+ConVar	sk_npc_dmg_smg2			( "sk_npc_dmg_smg2","0", FCVAR_REPLICATED);
+ConVar	sk_max_smg2				( "sk_max_smg2","0", FCVAR_REPLICATED);
+
 // FIXME: remove these
 //ConVar	sk_plr_dmg_flare_round	( "sk_plr_dmg_flare_round","0", FCVAR_REPLICATED);
 //ConVar	sk_npc_dmg_flare_round	( "sk_npc_dmg_flare_round","0", FCVAR_REPLICATED);
@@ -163,7 +168,7 @@ ConVar	sk_max_smg1				( "sk_max_smg1","0", FCVAR_REPLICATED);
 ConVar	sk_plr_dmg_buckshot		( "sk_plr_dmg_buckshot","0", FCVAR_REPLICATED);	
 ConVar	sk_npc_dmg_buckshot		( "sk_npc_dmg_buckshot","0", FCVAR_REPLICATED);
 ConVar	sk_max_buckshot			( "sk_max_buckshot","0", FCVAR_REPLICATED);
-ConVar	sk_plr_num_shotgun_pellets( "sk_plr_num_shotgun_pellets","7", FCVAR_REPLICATED);
+ConVar	sk_plr_num_shotgun_pellets( "sk_plr_num_shotgun_pellets","8", FCVAR_REPLICATED);
 
 ConVar	sk_plr_dmg_rpg_round	( "sk_plr_dmg_rpg_round","0", FCVAR_REPLICATED);
 ConVar	sk_npc_dmg_rpg_round	( "sk_npc_dmg_rpg_round","0", FCVAR_REPLICATED);
@@ -309,7 +314,7 @@ void CHalfLife2::CreateStandardEntities( void )
 #endif
 }
 
-#ifdef CLIENT_DLL 
+#ifdef CLIENT_DLL
 
 CHalfLife2::CHalfLife2()
 {
@@ -320,7 +325,6 @@ CHalfLife2::~CHalfLife2()
 {
 	Msg("C_HalfLife2 destroyed\n");
 }
-
 #else
 
 	extern bool		g_fGameOver;
@@ -614,7 +618,7 @@ CHalfLife2::~CHalfLife2()
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_SCANNER,			D_NU, 0);		
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_STALKER,			D_NU, 0);		
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_VORTIGAUNT,		D_LI, 0);
-		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_ZOMBIE,			D_FR, 0);
+		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_ZOMBIE,			D_HT, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_PROTOSNIPER,		D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_EARTH_FAUNA,		D_NU, 0);
 		CBaseCombatCharacter::SetDefaultRelationship(CLASS_CITIZEN_PASSIVE,	CLASS_PLAYER_ALLY,		D_NU, 0);
@@ -1406,7 +1410,22 @@ CHalfLife2::~CHalfLife2()
 	void CHalfLife2::PlayerThink( CBasePlayer *pPlayer )
 	{
 	}
+	/*
+	void CHalfLife2::Think( void )
+	{
+		BaseClass::Think();
 
+		if( physcannon_mega_enabled.GetBool() == true )
+		{
+			m_bMegaPhysgun = true;
+		}
+		else
+		{
+			// FIXME: Is there a better place for this?
+			m_bMegaPhysgun = ( GlobalEntity_GetState("super_phys_gun") == GLOBAL_ON );
+		}
+	}
+	*/
 	//-----------------------------------------------------------------------------
 	// Purpose: Returns how much damage the given ammo type should do to the victim
 	//			when fired by the attacker.
@@ -1763,10 +1782,10 @@ float CHalfLife2::GetAutoAimScale( CBasePlayer *pPlayer )
 	switch( GetSkillLevel() )
 	{
 	case SKILL_EASY:
-		return sk_autoaim_scale1.GetFloat();
+		return 0.0f;
 
 	case SKILL_MEDIUM:
-		return sk_autoaim_scale2.GetFloat();
+		return 0.0f;
 
 	default:
 		return 0.0f;
@@ -1881,7 +1900,7 @@ CAmmoDef *GetAmmoDef()
 		def.AddAmmoType("Fireball",			DMG_BURN | DMG_BLAST,		TRACER_NONE,			"sk_dmg_fireball",		"sk_dmg_npc_fireball",		"sk_max_fireball",		BULLET_IMPULSE(246, 2780), 0 ); //Fireball
 		def.AddAmmoType("ElecBullet",		DMG_BURN | DMG_SHOCK,		TRACER_NONE,			"sk_dmg_elecbullet",	"sk_dmg_npc_elecbullet",	"sk_max_elecbullet",	BULLET_IMPULSE(246, 2780), 0 ); //Electrical Bullet
 
-		def.AddAmmoType("AR2",				DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_ar2",			"sk_npc_dmg_ar2",			"sk_max_ar2",			BULLET_IMPULSE(120, 2360), 0 ); //
+		def.AddAmmoType("AR2",				DMG_BULLET,					TRACER_AR2,				"sk_plr_dmg_ar2",			"sk_npc_dmg_ar2",			"sk_max_ar2",			BULLET_IMPULSE(120, 2360), 0 ); //
 		def.AddAmmoType("AlyxGun",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_alyxgun",		"sk_npc_dmg_alyxgun",		"sk_max_alyxgun",		BULLET_IMPULSE(125, 1450), 0 ); //
 		def.AddAmmoType("Pistol",			DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_pistol",		"sk_npc_dmg_pistol",		"sk_max_pistol",		BULLET_IMPULSE(155, 1200), 0 ); //.40 S&W
 		def.AddAmmoType("SMG1",				DMG_BULLET,					TRACER_LINE_AND_WHIZ,	"sk_plr_dmg_smg1",			"sk_npc_dmg_smg1",			"sk_max_smg1",			BULLET_IMPULSE(25,	2370), 0 ); //5,7 × 28 mm

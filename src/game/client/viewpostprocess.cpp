@@ -53,6 +53,14 @@ float g_flDOFFarBlurRadius = 5.0f;
 
 bool g_bFlashlightIsOn = false;
 
+// SHADERS !!!
+ConVar acsmod_shaders("acsmod_shaders","1",FCVAR_ARCHIVE);
+
+ConVar acsmod_shaders_bokeh_dof("acsmod_shaders_bokeh_dof","1",FCVAR_ARCHIVE);
+ConVar acsmod_shaders_vertical("acsmod_shaders_vertical","1",FCVAR_ARCHIVE);
+ConVar acsmod_shaders_salete("acsmod_shaders_salete","1",FCVAR_ARCHIVE);
+ConVar acsmod_shaders_vignette("acsmod_shaders_vignette","1",FCVAR_ARCHIVE);
+
 // hdr parameters
 ConVar mat_bloomscale( "mat_bloomscale", "1" );
 
@@ -63,7 +71,7 @@ static ConVar mat_dynamic_tonemapping( "mat_dynamic_tonemapping", "1", FCVAR_CHE
 static ConVar mat_tonemapping_occlusion_use_stencil( "mat_tonemapping_occlusion_use_stencil", "0" );
 
 static ConVar mat_autoexposure_max( "mat_autoexposure_max", "2" );
-static ConVar mat_autoexposure_min( "mat_autoexposure_min", "0.5" );
+static ConVar mat_autoexposure_min( "mat_autoexposure_min", "0.3" );
 static ConVar mat_show_histogram( "mat_show_histogram", "0" );
 ConVar mat_hdr_uncapexposure( "mat_hdr_uncapexposure", "0", FCVAR_CHEAT );
 ConVar mat_force_bloom("mat_force_bloom","0", FCVAR_CHEAT);
@@ -78,7 +86,7 @@ ConVar mat_hdr_manual_tonemap_rate( "mat_hdr_manual_tonemap_rate", "1.0" );
 // fudge factor to make non-hdr bloom more closely match hdr bloom. Because of auto-exposure, high
 // bloomscales don't blow out as much in hdr. this factor was derived by comparing images in a
 // reference scene.
-ConVar mat_non_hdr_bloom_scalefactor("mat_non_hdr_bloom_scalefactor",".3");
+ConVar mat_non_hdr_bloom_scalefactor("mat_non_hdr_bloom_scalefactor",".4");
 
 // Apply addition scale to the final bloom scale
 static ConVar mat_bloom_scalefactor_scalar( "mat_bloom_scalefactor_scalar", "1.0", FCVAR_RELEASE );
@@ -1938,6 +1946,56 @@ void DoEnginePostProcessing( int x, int y, int w, int h, bool bFlashlightIsOn, b
 
 	GetCurrentTonemappingSystem()->DisplayHistogram();
 
+	static IMaterial* pDof = materials->FindMaterial( "shaders/acsmod_bokeh_dof", TEXTURE_GROUP_OTHER );
+
+	//IMaterialVar *pGrainAmountVar = grainMat->FindVar("$noiseamount", NULL);
+	//pGrainAmountVar->SetFloatValue(ae_grain_intensity.GetFloat());
+
+	if( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() >= 80 )
+	{
+		if( acsmod_shaders_bokeh_dof.GetInt() && pDof && acsmod_shaders.GetInt() )
+		{
+				UpdateScreenEffectTexture();
+				pRenderContext->DrawScreenSpaceRectangle( pDof, 0, 0, w, h,
+							0, 0, w - 1, h - 1,
+							w, h );
+		}
+	}
+	static IMaterial* pVert = materials->FindMaterial( "shaders/acsmod_vertical", TEXTURE_GROUP_OTHER );
+
+	if( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() >= 80 )
+	{
+		if( acsmod_shaders_vertical.GetInt() && pVert && acsmod_shaders.GetInt() )
+		{
+				UpdateScreenEffectTexture();
+				pRenderContext->DrawScreenSpaceRectangle( pVert, 0, 0, w, h,
+							0, 0, w - 1, h - 1,
+							w, h );
+		}
+	}
+	static IMaterial* pSale = materials->FindMaterial( "shaders/acsmod_salete", TEXTURE_GROUP_OTHER );
+
+	if( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() >= 80 )
+	{
+		if( acsmod_shaders_salete.GetInt() && pSale && acsmod_shaders.GetInt() )
+		{
+				UpdateScreenEffectTexture();
+				pRenderContext->DrawScreenSpaceRectangle( pSale, 0, 0, w, h,
+							0, 0, w - 1, h - 1,
+							w, h );
+		}
+	}
+
+	if ( acsmod_shaders_vignette.GetBool() && acsmod_shaders.GetBool() )
+	{
+		static IMaterial *vignetteMat = materials->FindMaterial("effects/vignette", TEXTURE_GROUP_OTHER);
+		if (vignetteMat)
+		{
+			UpdateScreenEffectTexture();
+			pRenderContext->DrawScreenSpaceRectangle(vignetteMat, 0, 0, w, h, 0, 0, w - 1, h - 1, w, h);
+		}
+	}
+
 	#if defined( _X360 )
 		pRenderContext->PopVertexShaderGPRAllocation();
 	#endif
@@ -2052,14 +2110,14 @@ EXPOSE_MATERIAL_PROXY( CMotionBlurMaterialProxy, MotionBlur );
 //=====================================================================================================================
 ConVar mat_motion_blur_enabled( "mat_motion_blur_enabled", "1" );
 
-ConVar mat_motion_blur_forward_enabled( "mat_motion_blur_forward_enabled", "0" );
-ConVar mat_motion_blur_falling_min( "mat_motion_blur_falling_min", "10.0" );
+ConVar mat_motion_blur_forward_enabled( "mat_motion_blur_forward_enabled", "1" );
+ConVar mat_motion_blur_falling_min( "mat_motion_blur_falling_min", "8.0" );
 
-ConVar mat_motion_blur_falling_max( "mat_motion_blur_falling_max", "20.0" );
-ConVar mat_motion_blur_falling_intensity( "mat_motion_blur_falling_intensity", "1.0" );
-//ConVar mat_motion_blur_roll_intensity( "mat_motion_blur_roll_intensity", "1.0" );
-ConVar mat_motion_blur_rotation_intensity( "mat_motion_blur_rotation_intensity", "1.0" );
-ConVar mat_motion_blur_strength( "mat_motion_blur_strength", "1.0" );
+ConVar mat_motion_blur_falling_max( "mat_motion_blur_falling_max", "30.0" );
+ConVar mat_motion_blur_falling_intensity( "mat_motion_blur_falling_intensity", "5.0" );
+ConVar mat_motion_blur_roll_intensity( "mat_motion_blur_roll_intensity", "0.5" );
+ConVar mat_motion_blur_rotation_intensity( "mat_motion_blur_rotation_intensity", "2.5" );
+ConVar mat_motion_blur_strength( "mat_motion_blur_strength", "2.0" );
 
 struct MotionBlurHistory_t
 {

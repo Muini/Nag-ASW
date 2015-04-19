@@ -916,16 +916,26 @@ void PhysForceClearVelocity( IPhysicsObject *pPhys )
 
 void PhysFrictionEffect( Vector &vecPos, Vector vecVel, float energy, int surfaceProps, int surfacePropsHit )
 {
+	
 	QAngle angDirection;
 	VectorAngles( vecVel, angDirection );
 
+	Vector invVecVel = -vecVel;
+	VectorNormalize( invVecVel );
+
 	surfacedata_t *psurf = physprops->GetSurfaceData( surfaceProps );
 	surfacedata_t *phit = physprops->GetSurfaceData( surfacePropsHit );
+
+	trace_t tr;
+	Vector	reflect;
+	reflect = invVecVel + ( tr.plane.normal * -2.0f );
+	Vector	offset = vecPos + ( tr.plane.normal * 1.0f );
+
 	switch ( phit->game.material )
 	{
 	case CHAR_TEX_DIRT:
 		
-		if ( energy < MASS10_SPEED2ENERGY(15) )
+		if ( energy < MASS10_SPEED2ENERGY(10) )
 			break;
 		
 		DispatchParticleEffect( "impact_physics_dust", vecPos, angDirection );
@@ -933,15 +943,87 @@ void PhysFrictionEffect( Vector &vecPos, Vector vecVel, float energy, int surfac
 
 	case CHAR_TEX_CONCRETE:
 		
-		if ( energy < MASS10_SPEED2ENERGY(28) )
+		if ( energy < MASS10_SPEED2ENERGY(20) )
 			break;
 
 		DispatchParticleEffect( "impact_physics_dust", vecPos, angDirection );
 		break;
+
+	case CHAR_TEX_FLESH:
+		
+		if ( energy < MASS10_SPEED2ENERGY(15) )
+			break;
+
+		UTIL_BloodImpact( vecPos, invVecVel, 2, random->RandomInt(0,1) );
+		
+		UTIL_TraceLine ( vecPos, vecPos + invVecVel + Vector(0,0,-32),  MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_DEBRIS, &tr);
+		if ( tr.fraction != 1.0 )
+		{
+			UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+		}
+		
+		DispatchParticleEffect( "impact_physics_dust", vecPos, angDirection );
+
+		break;
+
+	case CHAR_TEX_BLOODYFLESH:
+		
+		if ( energy < MASS10_SPEED2ENERGY(10) )
+			break;
+
+		UTIL_BloodImpact( vecPos, invVecVel, 2, random->RandomInt(0,1) );
+		
+		UTIL_TraceLine ( vecPos, vecPos + invVecVel + Vector(0,0,-32),  MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_DEBRIS, &tr);
+		if ( tr.fraction != 1.0 )
+		{
+			UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_RED );
+		}
+
+		break;
+
+	case CHAR_TEX_WOOD:
+		
+		if ( energy < MASS10_SPEED2ENERGY(20) )
+			break;
+		
+		DispatchParticleEffect( "impact_physics_dust", vecPos, angDirection );		
+		
+		break;
+
+	case CHAR_TEX_SAND:
+		
+		if ( energy < MASS10_SPEED2ENERGY(10) )
+			break;
+		
+		DispatchParticleEffect( "impact_physics_dust", vecPos, angDirection );		
+		
+		break;
+
+	case CHAR_TEX_ALIENFLESH:
+		
+		if ( energy < MASS10_SPEED2ENERGY(15) )
+			break;
+
+		UTIL_BloodImpact( vecPos, invVecVel, 1, random->RandomInt(0,3) );
+		
+		UTIL_TraceLine ( vecPos, vecPos + invVecVel + Vector(0,0,-32),  MASK_SOLID_BRUSHONLY, NULL, COLLISION_GROUP_DEBRIS, &tr);
+		if ( tr.fraction != 1.0 )
+		{
+			UTIL_BloodDecalTrace( &tr, BLOOD_COLOR_YELLOW );
+		}
+
+		break;
+
+	case CHAR_TEX_METAL:
+		
+		if ( energy < MASS10_SPEED2ENERGY(60) )
+			break;
+		
+		g_pEffects->MetalSparks( vecPos, invVecVel );
+		break;
 	}
-	
 	//Metal sparks
-	if ( energy > MASS10_SPEED2ENERGY(50) )
+	if ( energy > MASS10_SPEED2ENERGY(30) )
 	{
 		// make sparks for metal/concrete scrapes with enough energy
 		if ( psurf->game.material == CHAR_TEX_METAL || psurf->game.material == CHAR_TEX_GRATE )

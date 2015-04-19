@@ -142,6 +142,7 @@ void C_FireSmoke::OnDataChanged( DataUpdateType_t updateType )
 //-----------------------------------------------------------------------------
 void C_FireSmoke::UpdateEffects( void )
 {
+
 }
 
 //-----------------------------------------------------------------------------

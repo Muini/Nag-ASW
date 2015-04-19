@@ -39,6 +39,7 @@ typedef enum {
 	SPECIAL3,
 	TAUNT,
 	FAST_RELOAD,
+	DEPLOY,
 
 	// Add new shoot sound types here
 

@@ -140,6 +140,7 @@ kbutton_t	in_lookspin;
 
 kbutton_t	in_attack;
 kbutton_t	in_attack2;
+kbutton_t	in_attack3;
 kbutton_t	in_zoom;
 
 static	kbutton_t	in_klook;
@@ -594,7 +595,8 @@ void IN_Grenade1Down( const CCommand &args ) { KeyDown( &in_grenade1, args[1] );
 void IN_Grenade2Up( const CCommand &args ) { KeyUp( &in_grenade2, args[1] ); }
 void IN_Grenade2Down( const CCommand &args ) { KeyDown( &in_grenade2, args[1] ); }
 void IN_XboxStub( const CCommand &args ) { /*do nothing*/ }
-
+void IN_Attack3Down( const CCommand &args ) { KeyDown(&in_attack3, args[1] );}
+void IN_Attack3Up( const CCommand &args ) { KeyUp(&in_attack3, args[1] );}
 
 
 #ifdef INFESTED_DLL
@@ -1611,7 +1613,7 @@ int CInput::GetButtonBits( bool bResetState )
 	CalcButtonBits( nSlot, bits, IN_GRENADE1, ignore, &in_grenade1, bResetState );
 	CalcButtonBits( nSlot, bits, IN_GRENADE2, ignore, &in_grenade2, bResetState );
 	CalcButtonBits( nSlot, bits, IN_LOOKSPIN, ignore, &in_lookspin, bResetState );
-
+	CalcButtonBits( nSlot, bits, IN_ATTACK3, ignore, &in_attack3, bResetState );
 
 
 #ifdef INFESTED_DLL
@@ -1792,7 +1794,8 @@ static ConCommand endgrenade2( "-grenade2", IN_Grenade2Up );
 static ConCommand startgrenade2( "+grenade2", IN_Grenade2Down );
 static ConCommand startlookspin("+lookspin", IN_LookSpinDown);
 static ConCommand endlookspin("-lookspin", IN_LookSpinUp);
-
+static ConCommand startattack3("+attack3", IN_Attack3Down);
+static ConCommand endattack3("-attack3", IN_Attack3Up);
 
 
 #ifdef INFESTED_DLL

@@ -745,6 +745,8 @@ exit 1
     <ClCompile Include="hud_bitmapnumericdisplay.cpp" />
     <ClCompile Include="hud_closecaption.cpp" />
     <ClCompile Include="hud_element_helper.cpp" />
+    <ClCompile Include="hud_hitmarker.cpp" />
+    <ClCompile Include="hud_hull.cpp" />
     <ClCompile Include="hud_lcd.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
@@ -757,6 +759,7 @@ exit 1
     <ClCompile Include="hud_pdump.cpp" />
     <ClCompile Include="hud_redraw.cpp" />
     <ClCompile Include="..\shared\igamesystem.cpp" />
+    <ClCompile Include="hud_scope.cpp" />
     <ClCompile Include="in_camera.cpp" />
     <ClCompile Include="in_joystick.cpp" />
     <ClCompile Include="in_main.cpp" />
@@ -912,6 +915,8 @@ exit 1
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
       </PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="ShaderEditor\SEdit_ModelRender.cpp" />
+    <ClCompile Include="ShaderEditor\ShaderEditorSystem.cpp" />
     <ClCompile Include="simple_keys.cpp" />
     <ClCompile Include="..\..\public\simple_physics.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -1301,6 +1306,8 @@ exit 1
     <ClInclude Include="hl2\vgui\nb_button.h" />
     <ClInclude Include="hl2\vgui\nb_header_footer.h" />
     <ClInclude Include="hl2\vgui\nb_horiz_list.h" />
+    <ClInclude Include="hud_hitmarker.h" />
+    <ClInclude Include="hud_hull.h" />
     <ClInclude Include="hud_locator_target.h" />
     <ClInclude Include="..\..\engine\iblackbox.h" />
     <ClInclude Include="modelrendersystem.h" />
@@ -1309,6 +1316,10 @@ exit 1
     <ClInclude Include="..\shared\point_bonusmaps_accessor.h" />
     <ClInclude Include="..\shared\postprocess_shared.h" />
     <ClInclude Include="..\shared\sharedvar.h" />
+    <ClInclude Include="ShaderEditor\ISEdit_ModelRender.h" />
+    <ClInclude Include="ShaderEditor\IVShaderEditor.h" />
+    <ClInclude Include="ShaderEditor\SEdit_ModelRender.h" />
+    <ClInclude Include="ShaderEditor\ShaderEditorSystem.h" />
     <ClInclude Include="spatialentitymgr.h" />
     <ClInclude Include="vgui_avatarimage.h" />
     <ClInclude Include="viewdebug.h" />

@@ -403,7 +403,7 @@ void CHud::Init( void )
 //-----------------------------------------------------------------------------
 void CHud::InitColors( vgui::IScheme *scheme )
 {
-	m_clrNormal = scheme->GetColor( "Normal", Color( 255, 208, 64 ,255 ) );
+	m_clrNormal = scheme->GetColor( "Normal", Color( 255, 255, 255 ,255 ) );
 	m_clrCaution = scheme->GetColor( "Caution", Color( 255, 48, 0, 255 ) );
 	m_clrYellowish = scheme->GetColor( "Yellowish", Color( 255, 160, 0, 255 ) );
 }

@@ -60,6 +60,7 @@ private:
 	bool		m_bEnableShadows;
 	bool		m_bSimpleProjection;
 	bool		m_bLightOnlyTarget;
+	bool		m_bEnableVolumetrics;
 	bool		m_bLightWorld;
 	bool		m_bCameraSpace;
 	float		m_flBrightnessScale;

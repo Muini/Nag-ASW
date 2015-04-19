@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -6,17 +6,19 @@
 
 #include "cbase.h"
 #include "basehlcombatweapon.h"
-#include "NPCevent.h"
+#include "npcevent.h"
 #include "basecombatcharacter.h"
-#include "AI_BaseNPC.h"
+#include "ai_basenpc.h"
 #include "player.h"
 #include "game.h"
 #include "in_buttons.h"
 #include "grenade_ar2.h"
-#include "AI_Memory.h"
+#include "ai_memory.h"
 #include "soundent.h"
 #include "rumble_shared.h"
 #include "gamestats.h"
+#include "weapon_flaregun.h" 
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -36,23 +38,42 @@ public:
 	void	Precache( void );
 	void	AddViewKick( void );
 	void	SecondaryAttack( void );
+	void	PrimaryAttack( void );
 
-	int		GetMinBurst() { return 2; }
-	int		GetMaxBurst() { return 5; }
+	int		GetMinBurst() { return 1; }
+	int		GetMaxBurst() { return 16; }
 
 	virtual void Equip( CBaseCombatCharacter *pOwner );
 	bool	Reload( void );
 
-	float	GetFireRate( void ) { return 0.075f; }	// 13.3hz
+	float	GetFireRate( void ) { return 0.064f; }	// 13.3hz
 	int		CapabilitiesGet( void ) { return bits_CAP_WEAPON_RANGE_ATTACK1; }
-	int		WeaponRangeAttack2Condition( float flDot, float flDist );
+	int		WeaponRangeAttack2Condition();
 	Activity	GetPrimaryAttackActivity( void );
 
-	virtual const Vector& GetBulletSpread( void )
+	virtual Vector& GetBulletSpread( void )
 	{
-		static const Vector cone = VECTOR_CONE_5DEGREES;
+		static Vector cone=VECTOR_CONE_3DEGREES; //NPC & Default
+
+		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+		if ( pPlayer == NULL )
+			return cone;
+
+		if (pPlayer->m_nButtons & IN_DUCK) {  cone = VECTOR_CONE_1DEGREES;} else { cone = VECTOR_CONE_2DEGREES;} //Duck & Stand
+		if (pPlayer->m_nButtons & IN_FORWARD) { cone = VECTOR_CONE_3DEGREES;} //Move
+		if (pPlayer->m_nButtons & IN_BACK) { cone = VECTOR_CONE_3DEGREES;} //Move
+		if (pPlayer->m_nButtons & IN_MOVERIGHT) { cone = VECTOR_CONE_3DEGREES;} //Move
+		if (pPlayer->m_nButtons & IN_MOVELEFT) { cone = VECTOR_CONE_3DEGREES;} //Move
+		if (pPlayer->m_nButtons & IN_RUN) { cone = VECTOR_CONE_4DEGREES;} //Run
+		if (pPlayer->m_nButtons & IN_SPEED) { cone = VECTOR_CONE_4DEGREES;} //Run
+		if (pPlayer->m_nButtons & IN_JUMP) { cone = VECTOR_CONE_4DEGREES;} //Jump
+
+		cone = cone*(1+(m_nShotsFired/8));
+
 		return cone;
 	}
+
+	float GetSpeedMalus() { return 0.9f; }
 
 	const WeaponProficiencyInfo_t *GetProficiencyValues();
 
@@ -138,8 +159,8 @@ IMPLEMENT_ACTTABLE(CWeaponSMG1);
 //=========================================================
 CWeaponSMG1::CWeaponSMG1( )
 {
-	m_fMinRange1		= 0;// No minimum range. 
-	m_fMaxRange1		= 1400;
+	m_fMinRange1		= 12;// No minimum range. 
+	m_fMaxRange1		= 4096;
 
 	m_bAltFiresUnderwater = false;
 }
@@ -161,11 +182,11 @@ void CWeaponSMG1::Equip( CBaseCombatCharacter *pOwner )
 {
 	if( pOwner->Classify() == CLASS_PLAYER_ALLY )
 	{
-		m_fMaxRange1 = 3000;
+		m_fMaxRange1 = 4096;
 	}
 	else
 	{
-		m_fMaxRange1 = 1400;
+		m_fMaxRange1 = 4096;
 	}
 
 	BaseClass::Equip( pOwner );
@@ -180,9 +201,27 @@ void CWeaponSMG1::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, Vector 
 	WeaponSoundRealtime( SINGLE_NPC );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT|SOUND_CONTEXT_GUNFIRE, pOperator->GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pOperator, SOUNDENT_CHANNEL_WEAPON, pOperator->GetEnemy() );
-	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, VECTOR_CONE_PRECALCULATED,
-		MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 2, entindex(), 0 );
 
+	pOperator->FireBullets( 1, vecShootOrigin, vecShootDir, VECTOR_CONE_PRECALCULATED, MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 1, entindex(), 0 );
+
+	Vector vecShootOrigin2;  //The origin of the shot 
+	QAngle	angShootDir2;    //The angle of the shot
+	GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin2, angShootDir2 );
+	DispatchParticleEffect( "muzzle_tact_smg1", vecShootOrigin2, angShootDir2);
+	/*
+	QAngle angAiming;
+	VectorAngles( vecShootDir, angAiming );
+
+	trace_t tr;
+	UTIL_TraceLine( vecShootOrigin, vecShootOrigin + vecShootDir * 24.0f, MASK_SOLID, pOperator, COLLISION_GROUP_NONE, &tr );
+
+	vecShootOrigin += vecShootDir * 24.0f;
+
+	CFlare *pFlare = CFlare::Create( vecShootOrigin, angAiming, pOperator, 5.0f );
+	pFlare->SetAbsVelocity( vecShootDir * 3500 );
+	if ( pFlare == NULL )
+		return;
+	*/
 	pOperator->DoMuzzleFlash();
 	m_iClip1 = m_iClip1 - 1;
 }
@@ -212,13 +251,13 @@ void CWeaponSMG1::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChar
 	case EVENT_WEAPON_SMG1:
 		{
 			Vector vecShootOrigin, vecShootDir;
-			//QAngle angDiscard;
+			QAngle angDiscard;
 
 			// Support old style attachment point firing
-			//if ((pEvent->options == NULL) || (pEvent->options[0] == '\0') || (!pOperator->GetAttachment(pEvent->options, vecShootOrigin, angDiscard)))
-			//{
+			if ((pEvent->options == NULL) || (pEvent->options[0] == '\0') || (!pOperator->GetAttachment(pEvent->options, vecShootOrigin, angDiscard)))
+			{
 				vecShootOrigin = pOperator->Weapon_ShootPosition();
-			//}
+			}
 
 			CAI_BaseNPC *npc = pOperator->MyNPCPointer();
 			ASSERT( npc != NULL );
@@ -228,32 +267,48 @@ void CWeaponSMG1::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChar
 		}
 		break;
 
-		/*//FIXME: Re-enable
 		case EVENT_WEAPON_AR2_GRENADE:
 		{
-		CAI_BaseNPC *npc = pOperator->MyNPCPointer();
+			CAI_BaseNPC *npc = pOperator->MyNPCPointer();
 
-		Vector vecShootOrigin, vecShootDir;
-		vecShootOrigin = pOperator->Weapon_ShootPosition();
-		vecShootDir = npc->GetShootEnemyDir( vecShootOrigin );
+			Vector vecShootOrigin, vecShootDir;
+			vecShootOrigin = pOperator->Weapon_ShootPosition();
+			//vecShootDir = npc->GetShootEnemyDir( vecShootOrigin );
 
-		Vector vecThrow = m_vecTossVelocity;
+			//Checks if it can fire the grenade
+			WeaponRangeAttack2Condition();
 
-		CGrenadeAR2 *pGrenade = (CGrenadeAR2*)Create( "grenade_ar2", vecShootOrigin, vec3_angle, npc );
-		pGrenade->SetAbsVelocity( vecThrow );
-		pGrenade->SetLocalAngularVelocity( QAngle( 0, 400, 0 ) );
-		pGrenade->SetMoveType( MOVETYPE_FLYGRAVITY ); 
-		pGrenade->m_hOwner			= npc;
-		pGrenade->m_pMyWeaponAR2	= this;
-		pGrenade->SetDamage(sk_npc_dmg_ar2_grenade.GetFloat());
+			Vector vecThrow = m_vecTossVelocity;
 
-		// FIXME: arrgg ,this is hard coded into the weapon???
-		m_flNextGrenadeCheck = gpGlobals->curtime + 6;// wait six seconds before even looking again to see if a grenade can be thrown.
+			//If on the rare case the vector is 0 0 0, cancel for avoid launching the grenade without speed
+			//This should be on WeaponRangeAttack2Condition(), but for some unknown reason return CASE_NONE
+			//doesn't stop the launch
+			if (vecThrow == Vector(0, 0, 0)){
+				break;
+			}
 
-		m_iClip2--;
+			CGrenadeAR2 *pGrenade = (CGrenadeAR2*)Create("grenade_ar2", vecShootOrigin, vec3_angle, npc);
+			pGrenade->SetAbsVelocity( vecThrow );
+			pGrenade->SetLocalAngularVelocity(RandomAngle(-400, 400)); //tumble in air
+			pGrenade->SetMoveType(MOVETYPE_FLYGRAVITY, MOVECOLLIDE_FLY_BOUNCE);
+
+			pGrenade->SetThrower(GetOwner());
+
+			pGrenade->SetGravity(0.5); // lower gravity since grenade is aerodynamic and engine doesn't know it.
+		
+			pGrenade->SetDamage(sk_plr_dmg_smg1_grenade.GetFloat());
+
+			if (g_pGameRules->IsSkillLevel(SKILL_HARD))
+			{
+				m_flNextGrenadeCheck = gpGlobals->curtime + RandomFloat(2, 3);
+			}
+			else{
+				m_flNextGrenadeCheck = gpGlobals->curtime + 6;// wait six seconds before even looking again to see if a grenade can be thrown.
+			}
+
+			m_iClip2--;
 		}
 		break;
-		*/
 
 	default:
 		BaseClass::Operator_HandleAnimEvent( pEvent, pOperator );
@@ -267,6 +322,7 @@ void CWeaponSMG1::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChar
 //-----------------------------------------------------------------------------
 Activity CWeaponSMG1::GetPrimaryAttackActivity( void )
 {
+	/*
 	if ( m_nShotsFired < 2 )
 		return ACT_VM_PRIMARYATTACK;
 
@@ -277,6 +333,8 @@ Activity CWeaponSMG1::GetPrimaryAttackActivity( void )
 		return ACT_VM_RECOIL2;
 
 	return ACT_VM_RECOIL3;
+	*/
+	return ACT_VM_PRIMARYATTACK;
 }
 
 //-----------------------------------------------------------------------------
@@ -305,9 +363,10 @@ bool CWeaponSMG1::Reload( void )
 //-----------------------------------------------------------------------------
 void CWeaponSMG1::AddViewKick( void )
 {
-	#define	EASY_DAMPEN			0.5f
-	#define	MAX_VERTICAL_KICK	1.0f	//Degrees
-	#define	SLIDE_LIMIT			2.0f	//Seconds
+	/*
+	#define	EASY_DAMPEN			16.0f
+	#define	MAX_VERTICAL_KICK	24.0f	//Degrees
+	#define	SLIDE_LIMIT			8.0f	//Seconds
 	
 	//Get the view kick
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
@@ -315,12 +374,124 @@ void CWeaponSMG1::AddViewKick( void )
 	if ( pPlayer == NULL )
 		return;
 
+	//Disorient the player
+	QAngle angles = pPlayer->GetLocalAngles();
+
+	angles.x += random->RandomInt( -0.01, 0.01 );
+	angles.y += random->RandomInt( -0.01, 0.01 );
+	angles.z = 0;
+
+	pPlayer->SnapEyeAngles( angles );
+
 	DoMachineGunKick( pPlayer, EASY_DAMPEN, MAX_VERTICAL_KICK, m_fFireDuration, SLIDE_LIMIT );
+	*/
+	CBasePlayer *pPlayer  = ToBasePlayer( GetOwner() );
+	
+	if ( pPlayer == NULL )
+		return;
+
+	QAngle	viewPunch;
+
+	viewPunch.x = random->RandomFloat( 0.2f, 0.2f );
+	viewPunch.y = random->RandomFloat( -0.2f, 0.2f );
+	viewPunch.z = 0.0f;
+
+	//Disorient the player
+	QAngle angles = pPlayer->GetLocalAngles();
+
+	angles.x += random->RandomInt( -0.002, 0.002 );
+	angles.y += random->RandomInt( -0.002, 0.002 );
+	angles.z = 0;
+
+	pPlayer->SnapEyeAngles( angles );
+
+	//Add it to the view punch
+	pPlayer->ViewPunch( viewPunch );
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+void CWeaponSMG1::PrimaryAttack( void )
+{
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if (!pPlayer)
+	{
+		return;
+	}
+
+	Vector	vecSrc		= pPlayer->Weapon_ShootPosition( );
+	Vector	vecAiming	= pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
+
+	DispatchParticleEffect( "muzzle_tact_smg1", PATTACH_POINT, pPlayer->GetViewModel(), "muzzle", false);
+
+	if( (m_nShotsFired >= 15) )
+	{
+		 //We shot >5, clean up and start the muzzle smoking effect (like l4d)
+		 DispatchParticleEffect( "weapon_muzzle_smoke", PATTACH_POINT_FOLLOW, pPlayer->GetViewModel(), "muzzle", false);
+	}
+
+	// Abort here to handle burst and auto fire modes
+	if ( (UsesClipsForAmmo1() && m_iClip1 == 0) || ( !UsesClipsForAmmo1() && !pPlayer->GetAmmoCount(m_iPrimaryAmmoType) ) )
+		return;
+
+	m_nShotsFired++;
+
+	pPlayer->DoMuzzleFlash();
+
+	// To make the firing framerate independent, we may have to fire more than one bullet here on low-framerate systems, 
+	// especially if the weapon we're firing has a really fast rate of fire.
+	int iBulletsToFire = 0;
+	float fireRate = GetFireRate();
+
+	// MUST call sound before removing a round from the clip of a CHLMachineGun
+	while ( m_flNextPrimaryAttack <= gpGlobals->curtime )
+	{
+		WeaponSound(SINGLE, m_flNextPrimaryAttack);
+		m_flNextPrimaryAttack = m_flNextPrimaryAttack + fireRate;
+		iBulletsToFire++;
+	}
+	
+	// Make sure we don't fire more than the amount in the clip, if this weapon uses clips
+	if ( UsesClipsForAmmo1() )
+	{
+		if ( iBulletsToFire > m_iClip1 )
+			iBulletsToFire = m_iClip1;
+		m_iClip1 -= iBulletsToFire;
+	}
+	
+	m_iPrimaryAttacks++;
+	gamestats->Event_WeaponFired( pPlayer, true, GetClassname() );
+
+	// Fire the bullets
+	FireBulletsInfo_t info;
+	info.m_iShots = iBulletsToFire;
+	info.m_vecSrc = pPlayer->Weapon_ShootPosition( );
+	info.m_vecDirShooting = pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );
+	info.m_vecSpread = pPlayer->GetAttackSpread( this );
+	info.m_flDistance = MAX_TRACE_LENGTH;
+	info.m_iAmmoType = m_iPrimaryAmmoType;
+	info.m_iTracerFreq = 1;
+	FireBullets( info );
+
+	//Factor in the view kick
+	AddViewKick();
+
+	CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pPlayer );
+	
+	if (!m_iClip1 && pPlayer->GetAmmoCount(m_iPrimaryAmmoType) <= 0)
+	{
+		// HEV suit - indicate out of ammo condition
+		pPlayer->SetSuitUpdate("!HEV_AMO0", FALSE, 0); 
+	}
+
+	SendWeaponAnim( GetPrimaryAttackActivity() );
+	pPlayer->SetAnimation( PLAYER_ATTACK1 );
+
+	// Register a muzzleflash for the AI
+	pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );
+}
 void CWeaponSMG1::SecondaryAttack( void )
 {
 	// Only the player fires this way so we can cast
@@ -350,7 +521,7 @@ void CWeaponSMG1::SecondaryAttack( void )
 	Vector	vecThrow;
 	// Don't autoaim on grenade tosses
 	AngleVectors( pPlayer->EyeAngles() + pPlayer->GetPunchAngle(), &vecThrow );
-	VectorScale( vecThrow, 1000.0f, vecThrow );
+	VectorScale( vecThrow, 800.0f, vecThrow );
 	
 	//Create the grenade
 	QAngle angles;
@@ -394,7 +565,7 @@ void CWeaponSMG1::SecondaryAttack( void )
 //			flDist - 
 // Output : int
 //-----------------------------------------------------------------------------
-int CWeaponSMG1::WeaponRangeAttack2Condition( float flDot, float flDist )
+int CWeaponSMG1::WeaponRangeAttack2Condition()
 {
 	CAI_BaseNPC *npcOwner = GetOwner()->MyNPCPointer();
 
@@ -493,17 +664,16 @@ int CWeaponSMG1::WeaponRangeAttack2Condition( float flDot, float flDist )
 		return COND_WEAPON_SIGHT_OCCLUDED;
 	}
 }
-
 //-----------------------------------------------------------------------------
 const WeaponProficiencyInfo_t *CWeaponSMG1::GetProficiencyValues()
 {
 	static WeaponProficiencyInfo_t proficiencyTable[] =
 	{
-		{ 7.0,		0.75	},
-		{ 5.00,		0.75	},
-		{ 10.0/3.0, 0.75	},
-		{ 5.0/3.0,	0.75	},
-		{ 1.00,		1.0		},
+		{ 2.8, 0.6	},
+		{ 2.2, 0.6	},
+		{ 1.8, 0.6	},
+		{ 1.4, 0.6  },
+		{ 1.1, 0.6	},
 	};
 
 	COMPILE_TIME_ASSERT( ARRAYSIZE(proficiencyTable) == WEAPON_PROFICIENCY_PERFECT + 1);

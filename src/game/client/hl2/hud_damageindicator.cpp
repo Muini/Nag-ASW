@@ -51,8 +51,8 @@ private:
 	CPanelAnimationVarAliasType( float, m_flDmgX, "dmg_xpos", "10", "proportional_float" );
 	CPanelAnimationVarAliasType( float, m_flDmgY, "dmg_ypos", "80", "proportional_float" );
 	CPanelAnimationVarAliasType( float, m_flDmgWide, "dmg_wide", "30", "proportional_float" );
-	CPanelAnimationVarAliasType( float, m_flDmgTall1, "dmg_tall1", "300", "proportional_float" );
-	CPanelAnimationVarAliasType( float, m_flDmgTall2, "dmg_tall2", "240", "proportional_float" );
+	CPanelAnimationVarAliasType( float, m_flDmgTall1, "dmg_tall1", "150", "proportional_float" );
+	CPanelAnimationVarAliasType( float, m_flDmgTall2, "dmg_tall2", "120", "proportional_float" );
 
 	CPanelAnimationVar( Color, m_DmgColorLeft, "DmgColorLeft", "255 0 0 0" );
 	CPanelAnimationVar( Color, m_DmgColorRight, "DmgColorRight", "255 0 0 0" );

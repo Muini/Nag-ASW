@@ -217,7 +217,7 @@ void CHudSuitPower::Paint()
 			}
 			ypos += text2_gap;
 		}
-
+		/*
 		if (pPlayer->IsFlashlightActive())
 		{
 			tempString = g_pVGuiLocalize->Find("#Valve_Hud_FLASHLIGHT");
@@ -234,7 +234,7 @@ void CHudSuitPower::Paint()
 			}
 			ypos += text2_gap;
 		}
-
+		*/
 		if (pPlayer->IsSprinting())
 		{
 			tempString = g_pVGuiLocalize->Find("#Valve_Hud_SPRINT");

@@ -58,6 +58,10 @@ extern ConVar weapon_showproficiency;
 ConVar ai_show_hull_attacks( "ai_show_hull_attacks", "0" );
 ConVar ai_force_serverside_ragdoll( "ai_force_serverside_ragdoll", "0" );
 
+ConVar acsmod_ragdoll( "acsmod_ragdoll", "1" );
+
+ConVar acsmod_npc_viewcone_z("acsmod_npc_viewcone_z","128.0", FCVAR_CHEAT, "Z distance of viewcone of NPC");
+
 #ifndef _RETAIL
 ConVar ai_use_visibility_cache( "ai_use_visibility_cache", "1" );
 #define ShouldUseVisibilityCache() ai_use_visibility_cache.GetBool()
@@ -1319,11 +1323,24 @@ bool CBaseCombatCharacter::BecomeRagdoll( const CTakeDamageInfo &info, const Vec
 		return true;
 	}
 
-	if( hl2_episodic.GetBool() && Classify() == CLASS_PLAYER_ALLY_VITAL )
+	if ( acsmod_ragdoll.GetBool() ) //Ajout mod
 	{
-		CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
-		RemoveDeferred();
-		return true;
+		if( Classify() == CLASS_PLAYER_ALLY_VITAL || CLASS_PLAYER_ALLY || CLASS_ANTLION || CLASS_CITIZEN_PASSIVE || CLASS_CITIZEN_REBEL || CLASS_COMBINE || CLASS_HEADCRAB || CLASS_METROPOLICE || CLASS_STALKER || CLASS_VORTIGAUNT || CLASS_COMBINE_HUNTER )
+		{
+			CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true );
+			FixupBurningServerRagdoll( pRagdoll );
+			RemoveDeferred();
+			return true;
+		}
+	}else
+	{
+		if( hl2_episodic.GetBool() && Classify() == CLASS_PLAYER_ALLY_VITAL )
+		{
+			CBaseEntity *pRagdoll = CreateServerRagdoll( this, m_nForceBone, newinfo, COLLISION_GROUP_INTERACTIVE_DEBRIS, true ); //RagdollModChange
+			FixupBurningServerRagdoll( pRagdoll );
+			RemoveDeferred();
+			return true;
+		}
 	}
 #endif //HL2_DLL
 
@@ -1652,7 +1669,7 @@ void CBaseCombatCharacter::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector
 		if ( pWeapon->UsesClipsForAmmo1() )
 		{
 			pWeapon->m_iClip1 = pWeapon->GetDefaultClip1();
-
+			/*
 			if( FClassnameIs( pWeapon, "weapon_smg1" ) )
 			{
 				if ( CBasePlayer *pPlayer = UTIL_PlayerByIndex( 1 ) )
@@ -1666,7 +1683,7 @@ void CBaseCombatCharacter::Weapon_Drop( CBaseCombatWeapon *pWeapon, const Vector
 				{
 					pWeapon->m_iClip1 = pWeapon->GetMaxClip1();
 				}
-			}
+			}*/
 		}
 		if ( pWeapon->UsesClipsForAmmo2() )
 		{
@@ -2781,7 +2798,7 @@ CBaseEntity *CBaseCombatCharacter::Weapon_FindUsable( const Vector &range )
 				continue;
 			}
 
-			if( FClassnameIs( pWeapon, "weapon_pistol" ) )
+			if( FClassnameIs( pWeapon, "weapon_pistolet" ) )
 			{
 				// No, it's a pistol.
 				continue;
@@ -2803,7 +2820,7 @@ CBaseEntity *CBaseCombatCharacter::Weapon_FindUsable( const Vector &range )
 			//			Don't want to pick a weapon right next to a NPC!
 
 			// Give the AR2 a bonus to be selected by making it seem closer.
-			if( FClassnameIs( pWeapon, "weapon_ar2" ) )
+			if( FClassnameIs( pWeapon, "weapon_rifle" ) )
 			{
 				fCurDist *= 0.5;
 			}
@@ -2936,7 +2953,7 @@ float CBaseCombatCharacter::CalculatePhysicsStressDamage( vphysics_objectstress_
 void CBaseCombatCharacter::ApplyStressDamage( IPhysicsObject *pPhysics, bool bRequireLargeObject )
 {
 #ifdef HL2_DLL
-	if( Classify() == CLASS_PLAYER_ALLY || Classify() == CLASS_PLAYER_ALLY_VITAL )
+	if( /*Classify() == CLASS_PLAYER_ALLY || */Classify() == CLASS_PLAYER_ALLY_VITAL )
 	{
 		// Bypass stress completely for allies and vitals.
 		if( hl2_episodic.GetBool() )
@@ -2971,8 +2988,8 @@ const impactdamagetable_t &CBaseCombatCharacter::GetPhysicsImpactDamageTable( vo
 // how much to amplify impact forces
 // This is to account for the ragdolls responding differently than
 // the shadow objects.  Also this makes the impacts more dramatic.
-ConVar	phys_impactforcescale( "phys_impactforcescale", "1.0" ); 
-ConVar	phys_upimpactforcescale( "phys_upimpactforcescale", "0.375" ); 
+ConVar	phys_impactforcescale( "phys_impactforcescale", "0.3" ); 
+ConVar	phys_upimpactforcescale( "phys_upimpactforcescale", "0.075" ); 
 
 void CBaseCombatCharacter::VPhysicsShadowCollision( int index, gamevcollisionevent_t *pEvent )
 {

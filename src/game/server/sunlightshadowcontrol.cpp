@@ -115,7 +115,7 @@ CSunlightShadowControl::CSunlightShadowControl()
 	m_flColorTransitionTime = 0.5f;
 	m_flSunDistance = 10000.0f;
 	m_flFOV = 5.0f;
-	m_bEnableShadows = false;
+	m_bEnableShadows = true;
 }
 
 

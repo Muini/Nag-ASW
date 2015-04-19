@@ -24,7 +24,8 @@ BEGIN_DATADESC( CEnvProjectedTexture )
 	DEFINE_KEYFIELD( m_bLightWorld, FIELD_BOOLEAN, "lightworld" ),
 	DEFINE_KEYFIELD( m_bCameraSpace, FIELD_BOOLEAN, "cameraspace" ),
 	DEFINE_KEYFIELD( m_flAmbient, FIELD_FLOAT, "ambient" ),
-	DEFINE_AUTO_ARRAY_KEYFIELD( m_SpotlightTextureName, FIELD_CHARACTER, "texturename" ),
+	//DEFINE_AUTO_ARRAY_KEYFIELD( m_SpotlightTextureName, FIELD_CHARACTER, "texturename" ),
+	DEFINE_AUTO_ARRAY( m_SpotlightTextureName, FIELD_CHARACTER ),
 	DEFINE_KEYFIELD( m_nSpotlightTextureFrame, FIELD_INTEGER, "textureframe" ),
 	DEFINE_KEYFIELD( m_flNearZ, FIELD_FLOAT, "nearz" ),
 	DEFINE_KEYFIELD( m_flFarZ, FIELD_FLOAT, "farz" ),
@@ -97,7 +98,7 @@ CEnvProjectedTexture::CEnvProjectedTexture( void )
 	m_flColorTransitionTime = 0.5f;
 	m_flAmbient = 0.0f;
 	m_flNearZ = 4.0f;
-	m_flFarZ = 750.0f;
+	m_flFarZ = 2048.0f;
 	m_nShadowQuality = 0;
 	m_flProjectionSize = 500.0f;
 	m_flRotation = 0.0f;
@@ -129,27 +130,15 @@ bool CEnvProjectedTexture::KeyValue( const char *szKeyName, const char *szValue 
 		m_LightColor.SetB( tmp[2] );
 		m_LightColor.SetA( tmp[3] );
 	}
-	else if ( FStrEq( szKeyName, "texturename" ) )
+	else if ( FStrEq(szKeyName, "texturename" ) )
 	{
-#if defined( _X360 )
-		if ( Q_strcmp( szValue, "effects/flashlight001" ) == 0 )
-		{
-			// Use this as the default for Xbox
-			Q_strcpy( m_SpotlightTextureName.GetForModify(), "effects/flashlight_border" );
-		}
-		else
-		{
-			Q_strcpy( m_SpotlightTextureName.GetForModify(), szValue );
-		}
-#else
 		Q_strcpy( m_SpotlightTextureName.GetForModify(), szValue );
-#endif
 	}
 	else
 	{
 		return BaseClass::KeyValue( szKeyName, szValue );
 	}
-
+ 
 	return true;
 }
 
@@ -246,7 +235,17 @@ void CEnvProjectedTexture::Activate( void )
 
 void CEnvProjectedTexture::InitialThink( void )
 {
-	m_hTargetEntity = gEntList.FindEntityByName( NULL, m_target );
+	if ( m_hTargetEntity == NULL && m_target != NULL_STRING )
+		m_hTargetEntity = gEntList.FindEntityByName( NULL, m_target );
+	if ( m_hTargetEntity == NULL )
+		return;
+ 
+	Vector vecToTarget = (m_hTargetEntity->GetAbsOrigin() - GetAbsOrigin());
+	QAngle vecAngles;
+	VectorAngles( vecToTarget, vecAngles );
+	SetAbsAngles( vecAngles );
+ 
+	SetNextThink( gpGlobals->curtime + 0.1 );
 }
 
 int CEnvProjectedTexture::UpdateTransmitState()

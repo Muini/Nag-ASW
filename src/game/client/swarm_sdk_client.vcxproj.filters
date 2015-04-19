@@ -91,6 +91,9 @@
     <Filter Include="Source Files\HL2 Client\VGUI\GameUI\SP">
       <UniqueIdentifier>{5dbd78c4-e703-4eff-a47d-dafa16e0f659}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\SourceShader">
+      <UniqueIdentifier>{bb8fee2e-9106-47a6-be9e-6165f03be064}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="client_base.vpc">
@@ -1957,6 +1960,21 @@
     </ClCompile>
     <ClCompile Include="hl2\c_thumper_dust.cpp">
       <Filter>Source Files\HL2 Client\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="hud_hitmarker.cpp">
+      <Filter>Source Files\HL2 Client\HUD</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderEditor\SEdit_ModelRender.cpp">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderEditor\ShaderEditorSystem.cpp">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClCompile>
+    <ClCompile Include="hud_hull.cpp">
+      <Filter>Source Files\HL2 Client\HUD</Filter>
+    </ClCompile>
+    <ClCompile Include="hud_scope.cpp">
+      <Filter>Source Files\HL2 Client\HUD</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -4071,6 +4089,24 @@
     </ClInclude>
     <ClInclude Include="..\..\public\filesystem_passthru.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hud_hitmarker.h">
+      <Filter>Source Files\HL2 Client\HUD</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderEditor\ISEdit_ModelRender.h">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderEditor\IVShaderEditor.h">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderEditor\SEdit_ModelRender.h">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderEditor\ShaderEditorSystem.h">
+      <Filter>Source Files\SourceShader</Filter>
+    </ClInclude>
+    <ClInclude Include="hud_hull.h">
+      <Filter>Source Files\HL2 Client\HUD</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

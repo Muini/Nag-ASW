@@ -61,8 +61,9 @@ PRECACHE_REGISTER_BEGIN( GLOBAL, PrecacheEffectMuzzleFlash )
 	PRECACHE( MATERIAL, "effects/strider_muzzle" )
 PRECACHE_REGISTER_END()
 
+extern ConVar cl_ejectbrass;
 
-ConVar func_break_max_pieces( "func_break_max_pieces", "15", FCVAR_ARCHIVE | FCVAR_REPLICATED );
+ConVar func_break_max_pieces( "func_break_max_pieces", "1024", FCVAR_ARCHIVE | FCVAR_REPLICATED );
 
 ConVar cl_fasttempentcollision( "cl_fasttempentcollision", "5" );
 
@@ -88,13 +89,13 @@ C_LocalTempEntity::C_LocalTempEntity()
 }
 
 
-#if defined (SDK_DLL )
+//#if defined (SDK_DLL )
 
 #define TE_RIFLE_SHELL 1024
 #define TE_PISTOL_SHELL 2048
 #define TE_SHOTGUN_SHELL 4096
 
-#endif
+//#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Prepare a temp entity for creation
@@ -1626,6 +1627,57 @@ void CTempEnts::Sprite_Smoke( C_LocalTempEntity *pTemp, float scale )
 
 }
 
+void CTempEnts::EjectBrass( const Vector &pos1, const QAngle &angles, const QAngle &gunAngles, int type )
+{
+	if ( cl_ejectbrass.GetBool() == false )
+		return;
+
+	const model_t *pModel = m_pShells[type];
+	
+	if ( pModel == NULL )
+		return;
+
+	C_LocalTempEntity	*pTemp = TempEntAlloc();
+
+	if ( pTemp == NULL )
+		return;
+
+	//Keep track of shell type
+	if ( type == 2 )
+	{
+		pTemp->hitSound = BOUNCE_SHOTSHELL;
+	}
+	else
+	{
+		pTemp->hitSound = BOUNCE_SHELL;
+	}
+
+	//pTemp->m_nBody	= 0;
+
+	pTemp->flags |= ( FTENT_COLLIDEWORLD | FTENT_FADEOUT | FTENT_GRAVITY | FTENT_ROTATE );
+
+	pTemp->m_vecTempEntAngVelocity[0] = random->RandomFloat(-1024,1024);
+	pTemp->m_vecTempEntAngVelocity[1] = random->RandomFloat(-1024,1024);
+	pTemp->m_vecTempEntAngVelocity[2] = random->RandomFloat(-1024,1024);
+
+	//Face forward
+	pTemp->SetAbsAngles( gunAngles );
+
+	pTemp->SetRenderMode( kRenderNormal );
+	pTemp->tempent_renderamt = 255;		// Set this for fadeout
+
+	Vector	dir;
+
+	AngleVectors( angles, &dir );
+
+	dir *= random->RandomFloat( 150.0f, 200.0f );
+
+	pTemp->SetVelocity( Vector(dir[0] + random->RandomFloat(-64,64),
+						dir[1] + random->RandomFloat(-64,64),
+						dir[2] + random->RandomFloat(  0,64) ) );
+
+	pTemp->die = gpGlobals->curtime + 120.0f + random->RandomFloat( 0.0f, 30.0f );	// Add an extra 0-1 secs of life	
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Create some simple physically simulated models
@@ -2286,14 +2338,14 @@ void CTempEnts::LevelInit()
 	m_pShells[1] = (model_t *) engine->LoadModel( "models/weapons/rifleshell.mdl" );
 	m_pShells[2] = (model_t *) engine->LoadModel( "models/weapons/shotgun_shell.mdl" );
 
-#if defined ( SDK_DLL )
+//#if defined ( SDK_DLL )
 	m_pCS_9MMShell		= (model_t *)engine->LoadModel( "models/Shells/shell_9mm.mdl" );
 	m_pCS_57Shell		= (model_t *)engine->LoadModel( "models/Shells/shell_57.mdl" );
 	m_pCS_12GaugeShell	= (model_t *)engine->LoadModel( "models/Shells/shell_12gauge.mdl" );
 	m_pCS_556Shell		= (model_t *)engine->LoadModel( "models/Shells/shell_556.mdl" );
 	m_pCS_762NATOShell	= (model_t *)engine->LoadModel( "models/Shells/shell_762nato.mdl" );
 	m_pCS_338MAGShell	= (model_t *)engine->LoadModel( "models/Shells/shell_338mag.mdl" );
-#endif
+//#endif
 }
 
 
@@ -2318,14 +2370,14 @@ void CTempEnts::Init (void)
 	m_pShells[1] = NULL;
 	m_pShells[2] = NULL;
 
-#if defined ( SDK_DLL )
+//#if defined ( SDK_DLL )
 	m_pCS_9MMShell		= NULL;
 	m_pCS_57Shell		= NULL;
 	m_pCS_12GaugeShell	= NULL;
 	m_pCS_556Shell		= NULL;
 	m_pCS_762NATOShell	= NULL;
 	m_pCS_338MAGShell	= NULL;
-#endif
+//#endif
 
 	// Clear out lists to start
 	Clear();
@@ -2393,6 +2445,7 @@ inline void CTempEnts::CacheMuzzleFlashes( void )
 //-----------------------------------------------------------------------------
 void CTempEnts::MuzzleFlash_Combine_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_Combine_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash", hEntity, attachmentIndex, FLE_VIEWMODEL );
 
@@ -2456,6 +2509,7 @@ void CTempEnts::MuzzleFlash_Combine_Player( ClientEntityHandle_t hEntity, int at
 	
 	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 	pParticle->m_flRollDelta	= 0.0f;
+	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -2466,6 +2520,7 @@ void CTempEnts::MuzzleFlash_Combine_Player( ClientEntityHandle_t hEntity, int at
 //-----------------------------------------------------------------------------
 void CTempEnts::MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_Combine_NPC", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash_Combine_NPC", hEntity, attachmentIndex );
 
@@ -2620,7 +2675,7 @@ void CTempEnts::MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attac
 	pParticle->m_uchEndSize		= 0.0f;
 	pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 	pParticle->m_flRollDelta	= 0.0f;
-
+	*/
 	matrix3x4_t	matAttachment;
 	Vector		origin;
 	
@@ -2637,7 +2692,6 @@ void CTempEnts::MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attac
 		Assert(0);
 		return;
 	}
-
 	if ( muzzleflash_light.GetBool() )
 	{
 		C_BaseEntity *pEnt = ClientEntityList().GetBaseEntityFromHandle( hEntity );
@@ -2657,6 +2711,7 @@ void CTempEnts::MuzzleFlash_Combine_NPC( ClientEntityHandle_t hEntity, int attac
 			el->die		= gpGlobals->curtime + 0.05f;
 		}
 	}
+	
 }
 
 //==================================================
@@ -2676,7 +2731,7 @@ void CTempEnts::MuzzleFlash_AR2_NPC( const Vector &origin, const QAngle &angles,
 void CTempEnts::MuzzleFlash_SMG1_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
 	//Draw the cloud of fire
-	FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
+	//FX_MuzzleEffectAttached( 1.0f, hEntity, attachmentIndex, NULL, true );
 }
 
 //-----------------------------------------------------------------------------
@@ -2684,6 +2739,7 @@ void CTempEnts::MuzzleFlash_SMG1_NPC( ClientEntityHandle_t hEntity, int attachme
 //-----------------------------------------------------------------------------
 void CTempEnts::MuzzleFlash_SMG1_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_SMG1_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CLocalSpaceEmitter> pSimple = CLocalSpaceEmitter::Create( "MuzzleFlash_SMG1_Player", hEntity, attachmentIndex, FLE_VIEWMODEL );
 
@@ -2723,6 +2779,7 @@ void CTempEnts::MuzzleFlash_SMG1_Player( ClientEntityHandle_t hEntity, int attac
 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 		pParticle->m_flRollDelta	= 0.0f;
 	}
+	*/
 }
 
 //==================================================
@@ -2732,6 +2789,7 @@ void CTempEnts::MuzzleFlash_SMG1_Player( ClientEntityHandle_t hEntity, int attac
 
 void CTempEnts::MuzzleFlash_Shotgun_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_Shotgun_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_Shotgun_Player" );
 
@@ -2782,6 +2840,7 @@ void CTempEnts::MuzzleFlash_Shotgun_Player( ClientEntityHandle_t hEntity, int at
 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 		pParticle->m_flRollDelta	= 0.0f;
 	}
+	*/
 }
 
 //==================================================
@@ -2791,6 +2850,7 @@ void CTempEnts::MuzzleFlash_Shotgun_Player( ClientEntityHandle_t hEntity, int at
 
 void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	//Draw the cloud of fire
 	FX_MuzzleEffectAttached( 0.75f, hEntity, attachmentIndex );
 
@@ -2892,6 +2952,52 @@ void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attac
 		pTrailParticle->m_flLength	= 0.05f;
 		pTrailParticle->m_flWidth	= random->RandomFloat( 0.25f, 0.5f );
 	}
+	*/
+	matrix3x4_t	matAttachment;
+	Vector		origin;
+	
+	// Grab the origin out of the transform for the attachment
+	if ( FX_GetAttachmentTransform( hEntity, attachmentIndex, matAttachment ) )
+	{
+		origin.x = matAttachment[0][3];
+		origin.y = matAttachment[1][3];
+		origin.z = matAttachment[2][3];
+	}
+	else
+	{
+		//NOTENOTE: If you're here, you've specified an entity or an attachment that is invalid
+		Assert(0);
+		return;
+	}
+	if ( muzzleflash_light.GetBool() )
+	{
+		C_BaseEntity *pEnt = ClientEntityList().GetBaseEntityFromHandle( hEntity );
+		if ( pEnt )
+		{
+			dlight_t *el = effects->CL_AllocElight( LIGHT_INDEX_MUZZLEFLASH + pEnt->entindex() );
+
+			el->origin	= origin;
+
+			el->color.r = 255;
+			el->color.g = 220;
+			el->color.b = 180;
+			el->color.exponent = 5;
+
+			el->radius	= random->RandomInt( 64, 96 );
+			el->decay	= el->radius / 0.04f;
+			el->die		= gpGlobals->curtime + 0.025f;
+
+			dlight_t *dl = effects->CL_AllocDlight ( LIGHT_INDEX_MUZZLEFLASH + pEnt->entindex() );
+			dl->origin = origin;
+			dl->radius = random->RandomFloat( 96.0f, 128.0f );
+			dl->decay = dl->radius / 0.04f;
+			dl->die = gpGlobals->curtime + 0.01f;
+			dl->color.r = 255;
+			dl->color.g = 220;
+			dl->color.b = 180;
+			dl->color.exponent = 5;
+		}
+	}
 }
 
 //==================================================
@@ -2899,6 +3005,7 @@ void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attac
 //==================================================
 void CTempEnts::MuzzleFlash_357_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_357_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_357_Player" );
 
@@ -2977,6 +3084,7 @@ void CTempEnts::MuzzleFlash_357_Player( ClientEntityHandle_t hEntity, int attach
 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 		pParticle->m_flRollDelta	= 0.0f;
 	}
+	*/
 }
 
 //==================================================
@@ -2986,6 +3094,7 @@ void CTempEnts::MuzzleFlash_357_Player( ClientEntityHandle_t hEntity, int attach
 
 void CTempEnts::MuzzleFlash_Pistol_Player( ClientEntityHandle_t hEntity, int attachmentIndex )
 {
+	/*
 	VPROF_BUDGET( "MuzzleFlash_Pistol_Player", VPROF_BUDGETGROUP_PARTICLE_RENDERING );
 	CSmartPtr<CSimpleEmitter> pSimple = CSimpleEmitter::Create( "MuzzleFlash_Pistol_Player" );
 	pSimple->SetDrawBeforeViewModel( true );
@@ -3066,6 +3175,7 @@ void CTempEnts::MuzzleFlash_Pistol_Player( ClientEntityHandle_t hEntity, int att
 		pParticle->m_flRoll			= random->RandomInt( 0, 360 );
 		pParticle->m_flRollDelta	= 0.0f;
 	}
+	*/
 }
 
 //==================================================

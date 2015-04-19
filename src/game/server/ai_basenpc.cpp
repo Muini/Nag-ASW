@@ -89,6 +89,8 @@
 #include "datacache/imdlcache.h"
 #include "vstdlib/jobthread.h"
 #include "ai_addon.h"
+#include "gib.h"
+#include "particle_parse.h"
 
 #ifdef HL2_EPISODIC
 //#include "npc_alyx_episodic.h"
@@ -118,8 +120,8 @@ bool RagdollManager_SaveImportant( CAI_BaseNPC *pNPC );
 
 #define	MIN_PHYSICS_FLINCH_DAMAGE	5.0f
 
-#define	NPC_GRENADE_FEAR_DIST		200
-#define	MAX_GLASS_PENETRATION_DEPTH	16.0f
+#define	NPC_GRENADE_FEAR_DIST		300
+#define	MAX_GLASS_PENETRATION_DEPTH	24.0f
 
 #define FINDNAMEDENTITY_MAX_ENTITIES	32		// max number of entities to be considered for random entity selection in FindNamedEntity
 
@@ -147,6 +149,9 @@ ConVar	ai_frametime_limit( "ai_frametime_limit", "50", FCVAR_NONE, "frametime li
 ConVar	ai_use_think_optimizations( "ai_use_think_optimizations", "1" );
 
 ConVar	ai_test_moveprobe_ignoresmall( "ai_test_moveprobe_ignoresmall", "0" );
+
+ConVar acsmod_gore_plus("acsmod_gore_plus","1", FCVAR_ARCHIVE);
+ConVar acsmod_bullet_penetration_ratio("acsmod_bullet_penetration_ratio","1.4", FCVAR_CHEAT);
 
 #ifdef HL2_EPISODIC
 extern ConVar ai_vehicle_avoidance;
@@ -194,12 +199,12 @@ ConVar	ai_shot_stats( "ai_shot_stats", "0" );
 ConVar	ai_shot_stats_term( "ai_shot_stats_term", "1000" );
 ConVar	ai_shot_bias( "ai_shot_bias", "1.0" );
 
-ConVar	ai_spread_defocused_cone_multiplier( "ai_spread_defocused_cone_multiplier","3.0" );
-ConVar	ai_spread_cone_focus_time( "ai_spread_cone_focus_time","0.6" );
-ConVar	ai_spread_pattern_focus_time( "ai_spread_pattern_focus_time","0.8" );
+ConVar	ai_spread_defocused_cone_multiplier( "ai_spread_defocused_cone_multiplier","2.0" );
+ConVar	ai_spread_cone_focus_time( "ai_spread_cone_focus_time","0.8" );
+ConVar	ai_spread_pattern_focus_time( "ai_spread_pattern_focus_time","1.2" );
 
-ConVar	ai_reaction_delay_idle( "ai_reaction_delay_idle","0.3" );
-ConVar	ai_reaction_delay_alert( "ai_reaction_delay_alert", "0.1" );
+ConVar	ai_reaction_delay_idle( "ai_reaction_delay_idle","0.9" );
+ConVar	ai_reaction_delay_alert( "ai_reaction_delay_alert", "0.3" );
 
 ConVar ai_strong_optimizations( "ai_strong_optimizations", ( IsX360() ) ? "1" : "0" );
 bool AIStrongOpt( void )
@@ -1253,6 +1258,29 @@ void CAI_BaseNPC::TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir
 
 	case HITGROUP_HEAD:
 		subInfo.ScaleDamage( GetHitgroupDamageMultiplier(ptr->hitgroup, info) );
+		// HeadShot
+		if( subInfo.GetDamageType() == DMG_CLUB || subInfo.GetDamageType() == DMG_SLASH )
+		{
+			EmitSound( "NPC.HeadshotGore" );
+
+			DispatchParticleEffect( "zombies_headshot_blood_melee",  info.GetDamagePosition(), RandomAngle( 0, 360 ) );
+
+			if(acsmod_gore_plus.GetFloat())
+				CGib::SpawnStickyGibs( this, ptr->endpos, random->RandomInt(1,4) );
+		} 
+		else if( subInfo.GetDamageType() == DMG_BULLET || subInfo.GetDamageType() == DMG_BUCKSHOT ) 
+		{
+			EmitSound( "NPC.Headshot" );
+
+			DispatchParticleEffect( "zombies_headshot_blood",  info.GetDamagePosition(), RandomAngle( 0, 360 ) );
+
+			if(acsmod_gore_plus.GetFloat())
+				CGib::SpawnStickyGibs( this, ptr->endpos, random->RandomInt(0,2) );
+		}
+		
+		if(random->RandomInt(0,4)==0)
+			EmitSound( "NPC.BloodSpray" );
+
 		if( bDebug ) DevMsg("Hit Location: Head\n");
 		break;
 
@@ -1283,19 +1311,33 @@ void CAI_BaseNPC::TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir
 		break;
 	}
 
-	if ( subInfo.GetDamage() >= 1.0 && !(subInfo.GetDamageType() & DMG_SHOCK ) )
+	if ( subInfo.GetDamage() >= 2.0 )
 	{
-		if( !IsPlayer() || ( IsPlayer() && g_pGameRules->IsMultiplayer() ) )
-		{
-			// NPC's always bleed. Players only bleed in multiplayer.
-			SpawnBlood( ptr->endpos, vecDir, BloodColor(), subInfo.GetDamage() );// a little surface blood.
-		}
-
+		//SpawnBlood( ptr->endpos, vecDir, BloodColor(), subInfo.GetDamage() );// a little surface blood.
+		UTIL_BloodDecalTrace( ptr, BloodColor() );	
 		TraceBleed( subInfo.GetDamage(), vecDir, ptr, subInfo.GetDamageType() );
-
+		
+		if(acsmod_gore_plus.GetFloat() /*&& BloodColor() == BLOOD_COLOR_RED*/ )
+		{
+			if( subInfo.GetDamageType() & DMG_CLUB | DMG_SLASH )
+			{
+				if( random->RandomInt(0,6)==0 )
+					CGib::SpawnStickyGibs( this, ptr->endpos, random->RandomInt(0,1) );
+				
+				UTIL_BloodDecalTrace( ptr, BloodColor() );	
+				TraceBleed( subInfo.GetDamage(), vecDir, ptr, subInfo.GetDamageType() );
+			}
+		}
+		
 		if ( ptr->hitgroup == HITGROUP_HEAD && m_iHealth - subInfo.GetDamage() > 0 )
 		{
-			m_fNoDamageDecal = true;
+			m_fNoDamageDecal = false;
+			//SpawnBlood( ptr->endpos, vecDir, BloodColor(), subInfo.GetDamage() );// a little surface blood.
+			if(acsmod_gore_plus.GetFloat())
+			{
+				UTIL_BloodDecalTrace( ptr, BloodColor() );	
+				TraceBleed( subInfo.GetDamage(), vecDir, ptr, subInfo.GetDamageType() );
+			}
 		}
 	}
 
@@ -1309,6 +1351,8 @@ void CAI_BaseNPC::TraceAttack( const CTakeDamageInfo &info, const Vector &vecDir
 			{
 				subInfo.ScaleDamageForce( 400.0f * 65.0f / flMagnitude );
 			}
+			UTIL_BloodDecalTrace( ptr, BloodColor() );	
+			TraceBleed( subInfo.GetDamage(), vecDir, ptr, subInfo.GetDamageType() );
 		}
 	}
 
@@ -1418,7 +1462,7 @@ CBaseEntity *CAI_BaseNPC::PlayerInRange( const Vector &vecLocation, float flDist
 }
 
 
-#define BULLET_WIZZDIST	80.0
+#define BULLET_WIZZDIST	120.0
 #define SLOPE ( -1.0 / BULLET_WIZZDIST )
 
 void BulletWizz( Vector vecSrc, Vector vecEndPos, edict_t *pShooter, bool isTracer )
@@ -1582,17 +1626,102 @@ void CBaseEntity::UpdateShotStatistics( const trace_t &tr )
 // Handle shot entering water
 //-----------------------------------------------------------------------------
 void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info, 
-	const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter )
+	const trace_t &tr, const Vector &vecDir, ITraceFilter *pTraceFilter, float pRatio )
 {
+	// Get Material
+	surfacedata_t *psurf = physprops->GetSurfaceData( tr.surface.surfaceProps );
+
+	if(FStrEq(tr.surface.name,"tools/toolsblockbullets"))
+		return;
+	if(FStrEq(tr.surface.name,"tools/toolsnodraw"))
+		return;
+	if(FStrEq(tr.surface.name,"tools/toolsskybox"))
+		return;
+	if(FStrEq(tr.surface.name,"glass/glasswindow007a"))
+		return;
+	if(FStrEq(tr.surface.name,"glass/glasswindow020a"))
+		return;
+
+	int chanceRicochet = 100;
+
+	float DesiredDistance = 0.0f;
+
+	switch( psurf->game.material ) 
+	{
+		case CHAR_TEX_WOOD:
+			DesiredDistance = 9.0f; // 9 units in hammer
+			chanceRicochet -=50;
+			break;
+		case CHAR_TEX_GRATE:
+			DesiredDistance = 6.0f; // 6 units in hammer
+			chanceRicochet -=80;
+			break;
+		case CHAR_TEX_CONCRETE:
+			DesiredDistance = 4.0f; // 4 units in hammer
+			chanceRicochet -=85;
+			break;
+		case CHAR_TEX_TILE:
+			DesiredDistance = 5.0f; // 5 units in hammer
+			chanceRicochet -=70;
+			break;
+		case CHAR_TEX_COMPUTER:
+			DesiredDistance = 5.0f; // 5 units in hammer
+			chanceRicochet -=80;
+			break;
+		case CHAR_TEX_GLASS:
+			DesiredDistance = 8.0f; // maximum 8 units in hammer.
+			chanceRicochet -=30;
+			break;
+		case CHAR_TEX_VENT:
+			DesiredDistance = 4.0f; // 4 units in hammer and no more(!)
+			chanceRicochet -=90;
+			break;
+		case CHAR_TEX_METAL:
+			DesiredDistance = 2.0f; // 2 units in hammer. We cannot penetrate a really 'fat' metal wall. Corners are good.
+			chanceRicochet -=90;
+			break;
+		case CHAR_TEX_PLASTIC:
+			DesiredDistance = 8.0f; // 8 units in hammer: Plastic can more
+			chanceRicochet -=60;
+			break;
+		case CHAR_TEX_BLOODYFLESH:
+			DesiredDistance = 16.0f; // 16 units in hammer , Just like butter :D
+			chanceRicochet -=30;
+			break;
+		case CHAR_TEX_FLESH:
+			DesiredDistance = 16.0f; // 16 units in hammer
+			chanceRicochet -=30;
+			break;
+		case CHAR_TEX_DIRT:
+			DesiredDistance = 6.0f; // 6 units in hammer: >4 cm of plaster can be penetrated
+			chanceRicochet -=60;
+			break;
+		default:
+			DesiredDistance = 2.0f;
+			break;
+	}
+
+	// No penetration if we don't know the material !
+	if ( DesiredDistance == 0.0f )
+		return;
+
+	chanceRicochet = chanceRicochet/5;
+
+	// Custom propeties
+	DesiredDistance *= pRatio;
+	DesiredDistance *= acsmod_bullet_penetration_ratio.GetFloat();
+	// More powerful weapon, more penetration !
+	CBaseEntity *pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+	float flActualDamage = g_pGameRules->GetAmmoDamage( pAttacker, tr.m_pEnt, info.m_iAmmoType );
+	DesiredDistance += (flActualDamage/10);
+
 	// Move through the glass until we're at the other side
-	Vector	testPos = tr.endpos + ( vecDir * MAX_GLASS_PENETRATION_DEPTH );
+	Vector	testPos = tr.endpos + ( vecDir * DesiredDistance );
 
 	CEffectData	data;
 
 	data.m_vNormal = tr.plane.normal;
 	data.m_vOrigin = tr.endpos;
-
-	DispatchEffect( "GlassImpact", data );
 
 	trace_t	penetrationTrace;
 
@@ -1601,7 +1730,75 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 
 	// See if we found the surface again
 	if ( penetrationTrace.startsolid || tr.fraction == 0.0f || penetrationTrace.fraction == 1.0f )
+	{
+		if (tr.fraction != 0.0f && penetrationTrace.fraction < 1.0f)
+		{
+			Vector	reflect;
+			float fldot = vecDir.Dot( tr.plane.normal );						//Getting angles from lasttrace
+ 
+			bool bMustDoRico = fldot > random->RandomFloat(-0.15f,-0.3f);
+			//Chance to make a ricochet !
+			if( bMustDoRico && random->RandomInt(0,chanceRicochet)<=1 )
+			{
+				Vector	reflect;
+				float	dot = vecDir.Dot( tr.plane.normal );
+				reflect = vecDir + ( tr.plane.normal * ( dot*-2.0f ) );
+
+				reflect[0] += random->RandomFloat( -0.2f, 0.2f );
+				reflect[1] += random->RandomFloat( -0.2f, 0.2f );
+				reflect[2] += random->RandomFloat( -0.2f, 0.2f );
+
+				g_pEffects->Ricochet( tr.endpos, reflect );
+
+				// Refire the round random angle
+				FireBulletsInfo_t ricochetInfo;
+				ricochetInfo.m_iShots = random->RandomInt(1,2);
+				ricochetInfo.m_vecSrc = tr.endpos;
+				ricochetInfo.m_vecDirShooting = reflect;
+				ricochetInfo.m_vecSpread = VECTOR_CONE_10DEGREES;
+				ricochetInfo.m_flDistance = info.m_flDistance;
+				ricochetInfo.m_iAmmoType = info.m_iAmmoType;
+				ricochetInfo.m_iTracerFreq = info.m_iTracerFreq;
+				ricochetInfo.m_flDamage = info.m_flDamage*0.7; //30% Less Damage !
+				ricochetInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+				ricochetInfo.m_nFlags = info.m_nFlags;
+				ricochetInfo.m_bAlreadyInterract = true;
+
+				FireBullets( ricochetInfo );
+			}
+		}
+		/*
+		if(random->RandomInt(0,10)==1)
+		{
+			//Chance to gib !
+			switch( psurf->game.material ) 
+			{
+				case CHAR_TEX_WOOD:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris3.mdl", 5 );
+					break;
+				case CHAR_TEX_CONCRETE:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris1.mdl", 5 );
+					break;
+				case CHAR_TEX_TILE:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris2.mdl", 5 );
+					break;
+				case CHAR_TEX_COMPUTER:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris3.mdl", 5 );
+					break;
+				case CHAR_TEX_GLASS:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris1.mdl", 5 );
+					break;
+				case CHAR_TEX_DIRT:
+					CGib::SpawnSpecificGibs( tr.m_pEnt, 1, 50, 200, "models/props_debris/impact_debris4.mdl", 5 );
+					break;
+				default:
+					//Do nothing
+					break;
+			}
+		}
+		*/
 		return;
+	}
 
 	//FIXME: This is technically frustrating MultiDamage, but multiple shots hitting multiple targets in one call
 	//		 would do exactly the same anyway...
@@ -1611,23 +1808,42 @@ void CBaseEntity::HandleShotImpactingGlass( const FireBulletsInfo_t &info,
 
 	data.m_vNormal = penetrationTrace.plane.normal;
 	data.m_vOrigin = penetrationTrace.endpos;
-	
-	DispatchEffect( "GlassImpact", data );
 
-	// Refire the round, as if starting from behind the glass
-	FireBulletsInfo_t behindGlassInfo;
-	behindGlassInfo.m_iShots = 1;
-	behindGlassInfo.m_vecSrc = penetrationTrace.endpos;
-	behindGlassInfo.m_vecDirShooting = vecDir;
-	behindGlassInfo.m_vecSpread = vec3_origin;
-	behindGlassInfo.m_flDistance = info.m_flDistance*( 1.0f - tr.fraction );
-	behindGlassInfo.m_iAmmoType = info.m_iAmmoType;
-	behindGlassInfo.m_iTracerFreq = info.m_iTracerFreq;
-	behindGlassInfo.m_flDamage = info.m_flDamage;
-	behindGlassInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
-	behindGlassInfo.m_nFlags = info.m_nFlags;
+	Vector randomAngle = Vector(0,0,0);
 
-	FireBullets( behindGlassInfo );
+	float flPenetrationDistance = VectorLength(tr.endpos - penetrationTrace.endpos);	
+
+	randomAngle[0] += (random->RandomFloat( -flPenetrationDistance, flPenetrationDistance ))*0.015;
+	randomAngle[1] += (random->RandomFloat( -flPenetrationDistance, flPenetrationDistance ))*0.015;
+	randomAngle[2] += (random->RandomFloat( -flPenetrationDistance, flPenetrationDistance ))*0.015;
+
+	randomAngle = vecDir + randomAngle;
+
+	// Refire the round, as if starting from behind the wall
+	FireBulletsInfo_t behindWallInfo;
+
+	if( random->RandomInt(0,chanceRicochet*10) == 0 )
+	{
+		//Bullet breaks
+		behindWallInfo.m_iShots = random->RandomInt(2,3);
+		behindWallInfo.m_flDamage = info.m_flDamage / flPenetrationDistance;
+		behindWallInfo.m_vecSpread = VECTOR_CONE_20DEGREES;
+		behindWallInfo.m_bAlreadyInterract = true;
+	}else{
+		behindWallInfo.m_iShots = 1;
+		behindWallInfo.m_flDamage = info.m_flDamage / (flPenetrationDistance/2);
+		behindWallInfo.m_vecSpread = vec3_origin;
+	}
+	behindWallInfo.m_vecSrc = penetrationTrace.endpos;
+	behindWallInfo.m_vecDirShooting = randomAngle;
+	behindWallInfo.m_flDistance = info.m_flDistance*( 1.0f - tr.fraction );
+	behindWallInfo.m_iAmmoType = info.m_iAmmoType;
+	behindWallInfo.m_iTracerFreq = info.m_iTracerFreq;
+	behindWallInfo.m_pAttacker = info.m_pAttacker ? info.m_pAttacker : this;
+	behindWallInfo.m_nFlags = info.m_nFlags;
+	//behindWallInfo.m_bAlreadyInterract = true;
+
+	FireBullets( behindWallInfo );
 }
 
 
@@ -1667,7 +1883,7 @@ void CAI_BaseNPC::MakeDamageBloodDecal ( int cCount, float flNoise, trace_t *ptr
 	trace_t Bloodtr;
 	Vector vecTraceDir;
 	int i;
-
+	/*
 	if ( !IsAlive() )
 	{
 		// dealing with a dead npc.
@@ -1681,7 +1897,7 @@ void CAI_BaseNPC::MakeDamageBloodDecal ( int cCount, float flNoise, trace_t *ptr
 			m_iMaxHealth -= 1;
 		}
 	}
-
+	*/
 	for ( i = 0 ; i < cCount ; i++ )
 	{
 		vecTraceDir = vecDir;
@@ -5304,10 +5520,10 @@ bool CAI_BaseNPC::ShouldLookForBetterWeapon()
 
 	if( IsMovingToPickupWeapon() )
 		return false;
-
+	/*
 	if( !IsPlayerAlly() && GetActiveWeapon() )
 		return false;
-
+	*/
 	if( IsInAScript() )
 		return false;
 
@@ -6981,7 +7197,7 @@ void CAI_BaseNPC::NPCInit ( void )
 
 	SetEnemy( NULL );
 
-	m_flDistTooFar		= 1024.0;
+	m_flDistTooFar		= 1536.0;
 	SetDistLook( 2048.0 );
 
 	if ( HasSpawnFlags( SF_NPC_LONG_RANGE ) )

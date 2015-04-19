@@ -15,16 +15,19 @@
 extern ConVar cl_sunlight_ortho_size;
 extern ConVar cl_sunlight_depthbias;
 
-ConVar cl_globallight_enabled( "cl_globallight_enabled", "0", FCVAR_ARCHIVE);
+ConVar cl_globallight_enabled( "cl_globallight_enabled", "1", FCVAR_ARCHIVE);
 ConVar cl_globallight_freeze( "cl_globallight_freeze", "0" );
 ConVar cl_globallight_xoffset( "cl_globallight_xoffset", "0" );
 ConVar cl_globallight_yoffset( "cl_globallight_yoffset", "0" );
 ConVar cl_globallight_drawfrustum( "cl_globallight_drawfrustum", "0" );
-ConVar cl_globallight_orthosize( "cl_globallight_orthosize", "1000" );
+ConVar cl_globallight_orthosize( "cl_globallight_orthosize", "2000" );
 ConVar cl_globallight_showpos( "cl_globallight_showpos", "0" );
 ConVar cl_globallight_xpos( "cl_globallight_xpos", "0" );
 ConVar cl_globallight_ypos( "cl_globallight_ypos", "0" );
 
+ConVar acsmod_globallight_volumetric( "acsmod_globallight_volumetric", "0" );
+ConVar acsmod_globallight_volumetric_intensity( "acsmod_globallight_volumetric_intensity", "2.0" );
+ConVar acsmod_globallight_volumetric_quality( "acsmod_globallight_volumetric_quality", "64" );
 //------------------------------------------------------------------------------
 // Purpose : Sunlights shadow control entity
 //------------------------------------------------------------------------------
@@ -166,7 +169,7 @@ void C_GlobalLight::ClientThink()
 //		Vector vPos = C_BasePlayer::GetLocalPlayer()->GetAbsOrigin();
 		
 //		vPos = Vector( 0.0f, 0.0f, 500.0f );
-		vPos = ( vPos + vSunDirection2D * m_flNorthOffset ) - vDirection * m_flSunDistance;
+		vPos = ( vPos + vSunDirection2D * (m_flNorthOffset) ) - vDirection * m_flSunDistance;
 		vPos += Vector( cl_globallight_xoffset.GetFloat(), cl_globallight_yoffset.GetFloat(), 0.0f );
 		
 		if (cl_globallight_showpos.GetBool() == true){	//ËÀË ß ÒÓÒÀ ÍÅÌÍÎÃÎ ÍÀØÊÎÄÈË, ÍÅ ÐÓÃÀÉÒÈÑ ÏËÇ ËÀÍÑÏÑ
@@ -192,17 +195,17 @@ void C_GlobalLight::ClientThink()
 		state.m_vecLightOrigin = vPos;
 		BasisToQuaternion( vForward, vRight, vUp, state.m_quatOrientation );
 
-		state.m_fQuadraticAtten = 0.0f;
-		state.m_fLinearAtten = m_flSunDistance * 2.0f;
-		state.m_fConstantAtten = 0.0f;
-		state.m_FarZAtten = m_flSunDistance * 2.0f;
+		state.m_fQuadraticAtten = 1.0f;
+		state.m_fLinearAtten = m_flSunDistance * 1.5;
+		state.m_fConstantAtten = 1.0f;
+		state.m_FarZAtten = m_flSunDistance * 1.5;
 		state.m_Color[0] = m_CurrentLinearFloatLightColor.x * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[1] = m_CurrentLinearFloatLightColor.y * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[2] = m_CurrentLinearFloatLightColor.z * ( 1.0f / 255.0f ) * m_flCurrentLinearFloatLightAlpha;
 		state.m_Color[3] = 0.0f; // fixme: need to make ambient work m_flAmbient;
 		state.m_NearZ = 4.0f;
-		state.m_FarZ = m_flSunDistance * 2.0f;
-		state.m_fBrightnessScale = 1.0f;
+		state.m_FarZ = m_flSunDistance * 1.5;
+		state.m_fBrightnessScale = 0.8f;
 		state.m_bGlobalLight = true;
 
 		float flOrthoSize = cl_globallight_orthosize.GetFloat();
@@ -221,7 +224,7 @@ void C_GlobalLight::ClientThink()
 		}
 
 		state.m_bDrawShadowFrustum = cl_globallight_drawfrustum.GetBool();
-		state.m_flShadowSlopeScaleDepthBias =  1.0f;
+		state.m_flShadowSlopeScaleDepthBias =  2.0f;
 		state.m_flShadowDepthBias = g_pMaterialSystemHardwareConfig->GetShadowDepthBias();
 		state.m_bEnableShadows = m_bEnableShadows;
 		state.m_pSpotlightTexture = m_SpotlightTexture;
@@ -230,6 +233,9 @@ void C_GlobalLight::ClientThink()
 		state.m_flShadowFilterSize = 0.2f;
 		//state.m_nShadowQuality = 1; // Allow entity to affect shadow quality
 		state.m_bShadowHighRes = true;
+		state.m_bVolumetric = acsmod_globallight_volumetric.GetBool();
+		state.m_flVolumetricIntensity = acsmod_globallight_volumetric_intensity.GetFloat();
+		state.m_nNumPlanes = acsmod_globallight_volumetric_quality.GetFloat();
 
 		if ( m_bOldEnableShadows != m_bEnableShadows )
 		{

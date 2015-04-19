@@ -128,20 +128,32 @@ bool C_EntityFlame::Simulate( void )
 	if ( gpGlobals->frametime <= 0.0f )
 		return true;
 
-#ifdef HL2_EPISODIC 
-	if ( IsEffectActive(EF_BRIGHTLIGHT) || IsEffectActive(EF_DIMLIGHT) )
-	{
-		dlight_t *dl = effects->CL_AllocDlight( index );
+//#ifdef HL2_EPISODIC 
+
+	//if ( IsEffectActive(EF_BRIGHTLIGHT) || IsEffectActive(EF_DIMLIGHT) )
+	//{
+		/*
+		dlight_t *dl = effects->CL_AllocDlight ( index );
 		dl->origin = GetAbsOrigin();
  		dl->origin[2] += 16;
-		dl->color.r = 254;
-		dl->color.g = 174;
+		dl->color.r = 250;
+		dl->color.g = 103;
 		dl->color.b = 10;
-		dl->radius = random->RandomFloat(400,431);
-		dl->die = gpGlobals->curtime + 0.001;
-	}
+		dl->radius = random->RandomFloat(600,431);
+		dl->die = gpGlobals->curtime + 0.01;
+		*/
+		dlight_t *el = effects->CL_AllocElight( index );
 
-#endif // HL2_EPISODIC 
+		el->origin = GetAbsOrigin();
+		el->origin[2] += 16;
+		el->color.r = 250;
+		el->color.g = 103;
+		el->color.b = 10;
+		el->radius = random->RandomFloat(600,431);
+		el->die = gpGlobals->curtime + 0.01;
+	//}
+
+//#endif // HL2_EPISODIC 
 
 	return true;
 }

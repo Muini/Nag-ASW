@@ -19,7 +19,7 @@ struct model_t;
 #include "mempool.h"
 #include "UtlLinkedList.h"
 
-#if defined( SDK_DLL )
+//#if defined( SDK_DLL )
 enum
 {
 	CS_SHELL_9MM = 0,
@@ -29,7 +29,7 @@ enum
 	CS_SHELL_762NATO,
 	CS_SHELL_338MAG,
 };
-#endif
+//#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: Interface for lecacy temp entities
@@ -51,6 +51,7 @@ public:
 	virtual void				RicochetSprite( const Vector &pos, model_t *pmodel, float duration, float scale ) = 0;
 	virtual void				MuzzleFlash( int type, ClientEntityHandle_t hEntity, int attachmentIndex, bool firstPerson ) = 0;
 	virtual void				MuzzleFlash( const Vector &pos1, const QAngle &angles, int type, ClientEntityHandle_t hEntity, bool firstPerson ) = 0;
+	virtual void				EjectBrass( const Vector& pos1, const QAngle& angles, const QAngle& gunAngles, int type ) = 0;
 	virtual C_LocalTempEntity   *SpawnTempModel( model_t *pModel, const Vector &vecOrigin, const QAngle &vecAngles, const Vector &vecVelocity, float flLifeTime, int iFlags ) = 0;
 	virtual void				BreakModel( const Vector &pos, const QAngle &angles, const Vector &size, const Vector &dir, float random, float life, int count, int modelIndex, char flags) = 0;
 	virtual void				Bubbles( const Vector &mins, const Vector &maxs, float height, int modelIndex, int count, float speed ) = 0;
@@ -113,6 +114,7 @@ public:
 	void					Sprite_Trail( const Vector &vecStart, const Vector &vecEnd, int modelIndex, int nCount, float flLife, float flSize, float flAmplitude, int nRenderamt, float flSpeed );
 
 	virtual void			PlaySound ( C_LocalTempEntity *pTemp, float damp );
+	virtual void			EjectBrass( const Vector &pos1, const QAngle &angles, const QAngle &gunAngles, int type );
 	virtual C_LocalTempEntity		*SpawnTempModel( model_t *pModel, const Vector &vecOrigin, const QAngle &vecAngles, const Vector &vecVelocity, float flLifeTime, int iFlags );
 	void					RocketFlare( const Vector& pos );
 	void					PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects = 0 );
@@ -137,14 +139,14 @@ private:
 	struct model_t			*m_pShells[3];
 	struct model_t			*m_pSpriteCombineFlash[2];
 
-#if defined ( SDK_DLL )
+//#if defined ( SDK_DLL )
 	struct model_t			*m_pCS_9MMShell;
 	struct model_t			*m_pCS_57Shell;
 	struct model_t			*m_pCS_12GaugeShell;
 	struct model_t			*m_pCS_556Shell;
 	struct model_t			*m_pCS_762NATOShell;
 	struct model_t			*m_pCS_338MAGShell;
-#endif
+//#endif
 
 // Internal methods also available to children
 protected:

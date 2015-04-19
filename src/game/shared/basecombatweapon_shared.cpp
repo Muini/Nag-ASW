@@ -45,8 +45,8 @@ CBaseCombatWeapon::CBaseCombatWeapon()
 	// Some default values.  There should be set in the particular weapon classes
 	m_fMinRange1		= 65;
 	m_fMinRange2		= 65;
-	m_fMaxRange1		= 1024;
-	m_fMaxRange2		= 1024;
+	m_fMaxRange1		= 2048;
+	m_fMaxRange2		= 2048;
 
 	m_bReloadsSingly	= false;
 
@@ -783,11 +783,13 @@ void CBaseCombatWeapon::DefaultTouch( CBaseEntity *pOther )
 
 	if( HasSpawnFlags(SF_WEAPON_NO_PLAYER_PICKUP) )
 		return;
-
+	/*
 	if (pPlayer->BumpWeapon(this))
 	{
 		OnPickedUp( pPlayer );
-	}
+	}*/
+
+	UTIL_HudHintText( pPlayer, "Valve_Hint_PicKUp" );
 #endif
 }
 
@@ -1346,6 +1348,8 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 		pOwner->SetNextAttack( gpGlobals->curtime + SequenceDuration() );
 	}
 
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( GetSpeedMalus() );
+
 	// Can't shoot again until we've finished deploying
 	m_flNextPrimaryAttack	= gpGlobals->curtime + SequenceDuration();
 	m_flNextSecondaryAttack	= gpGlobals->curtime + SequenceDuration();
@@ -1354,6 +1358,8 @@ bool CBaseCombatWeapon::DefaultDeploy( char *szViewModel, char *szWeaponModel, i
 	m_bAltFireHudHintDisplayed = false;
 	m_bReloadHudHintDisplayed = false;
 	m_flHudHintPollTime = gpGlobals->curtime + 5.0f;
+
+	WeaponSound( DEPLOY );
 	
 	SetWeaponVisible( true );
 
@@ -1392,6 +1398,9 @@ bool CBaseCombatWeapon::Holster( CBaseCombatWeapon *pSwitchingTo )
 
 	// cancel any reload in progress.
 	m_bInReload = false; 
+	m_bFiringWholeClip = false;
+	m_bInChanging = false;
+	SetNextWeps( NULL );
 
 	// kill any think functions
 	SetThink(NULL);
@@ -1433,9 +1442,34 @@ bool CBaseCombatWeapon::Holster( CBaseCombatWeapon *pSwitchingTo )
 			RescindReloadHudHint();
 	}
 
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( 1.0f );
+
+	/*
+	if( pSwitchingTo && flSequenceDuration > 0 )
+	{
+		m_fChangingTime = gpGlobals->curtime + flSequenceDuration + 1.0f;
+		SetNextWeps( pSwitchingTo );
+		m_bInChanging = true;
+		return ChangingWeps( pSwitchingTo );
+	}else{
+		return true;
+	}
+	*/
+
 	return true;
 }
-
+bool CBaseCombatWeapon::ChangingWeps( CBaseCombatWeapon *pSwitchingTo )
+{ 
+	if ( m_bInChanging && gpGlobals->curtime > m_fChangingTime )
+	{
+		DevMsg("On change d'arme maintenant !\n");
+		m_bInChanging = false;
+		pSwitchingTo->Deploy();
+		SetNextWeps( NULL );
+		return true;
+	}
+	return false;
+}
 #ifdef CLIENT_DLL
 
 	void CBaseCombatWeapon::BoneMergeFastCullBloat( Vector &localMins, Vector &localMaxs, const Vector &thisEntityMins, const Vector &thisEntityMaxs ) const
@@ -1475,6 +1509,16 @@ void CBaseCombatWeapon::HideThink( void )
 	{
 		SetWeaponVisible( false );
 	}
+}
+
+bool CBaseCombatWeapon::IsHolstered( void )
+{
+	if ( GetOwner() && GetOwner()->GetActiveWeapon() == this )
+	{
+		return GetOwner()->GetActiveWeapon()->Holster();
+	}
+
+	return false;
 }
 
 //-----------------------------------------------------------------------------
@@ -1527,6 +1571,57 @@ void CBaseCombatWeapon::ItemPostFrame( void )
 	CBasePlayer *pOwner = ToBasePlayer( GetOwner() );
 	if (!pOwner)
 		return;
+
+	if( m_bInReload || bLowered || m_bLowered || pOwner->GetMoveType() == MOVETYPE_LADDER || m_bInChanging ){
+		cvar->FindVar("crosshair")->SetValue(0);
+	}else{
+		cvar->FindVar("crosshair")->SetValue(1);
+		cvar->FindVar("acsmod_crosshair_spread")->SetValue(GetBulletSpread().Length()*200);
+	}
+	if( IsChanging() && GetNextWeps() ){
+		ChangingWeps( GetNextWeps() );
+		return;
+	}
+
+	cvar->FindVar("acsmod_player_speed_ratio")->SetValue( GetSpeedMalus() );
+
+	//No Weapons on ladders 
+    if( pOwner->GetMoveType() == MOVETYPE_LADDER )
+        return;
+
+	if ( !bLowered && (pOwner->m_nButtons & IN_SPEED ) && !m_bInReload )
+	{
+		bLowered = true;
+		SendWeaponAnim( ACT_VM_IDLE_LOWERED );
+		m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+	}
+	else if ( bLowered && !(pOwner->m_nButtons & IN_SPEED ) )
+	{
+		bLowered = false;
+		SendWeaponAnim( ACT_VM_IDLE );
+		m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+	}
+ 
+	if ( bLowered )
+	{
+		if ( gpGlobals->curtime > m_fLoweredReady )
+		{
+			bLowered = true;
+			SendWeaponAnim( ACT_VM_IDLE_LOWERED );
+			m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+		}
+		return;
+	}
+	else if ( bLowered )
+	{
+		if ( gpGlobals->curtime > m_fLoweredReady )
+		{
+			bLowered = false;
+			SendWeaponAnim( ACT_VM_IDLE );
+			m_fLoweredReady = gpGlobals->curtime + GetViewModelSequenceDuration();
+		}
+		return;
+	}
 
 	//Track the duration of the fire
 	//FIXME: Check for IN_ATTACK2 as well?
@@ -1615,8 +1710,27 @@ void CBaseCombatWeapon::ItemPostFrame( void )
 				 m_flNextPrimaryAttack = gpGlobals->curtime;
 			}
 
-			PrimaryAttack();
+			if( !bLowered )
+				PrimaryAttack();
 		}
+	}
+
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if(pPlayer && !engine->IsPaused())
+	{
+		float value = 0.06;
+		float timer = 0.15;
+
+		if(pPlayer->m_nButtons & IN_DUCK)
+		{
+			value /= 2;
+		}
+		//I'm drunk ?
+		float xoffset = cos( 2 * gpGlobals->curtime * timer ) * value * sin( 2 * gpGlobals->curtime * timer );
+		float yoffset = sin( 2 * gpGlobals->curtime * timer ) * value;
+ 
+		pPlayer->ViewPunch( QAngle( xoffset, yoffset, 0));
 	}
 
 	// -----------------------
@@ -1719,7 +1833,7 @@ const WeaponProficiencyInfo_t *CBaseCombatWeapon::GetProficiencyValues()
 //-----------------------------------------------------------------------------
 float CBaseCombatWeapon::GetFireRate( void )
 {
-	return 0;
+	return 1.0f;
 }
 
 //-----------------------------------------------------------------------------
@@ -2097,7 +2211,7 @@ void CBaseCombatWeapon::PrimaryAttack( void )
 
 	info.m_flDistance = MAX_TRACE_LENGTH;
 	info.m_iAmmoType = m_iPrimaryAmmoType;
-	info.m_iTracerFreq = 2;
+	info.m_iTracerFreq = 1;
 
 #if !defined( CLIENT_DLL )
 	// Fire the bullets
@@ -2182,7 +2296,7 @@ void CBaseCombatWeapon::BaseForceFire( CBaseCombatCharacter *pOperator, CBaseEnt
 
 	info.m_flDistance = MAX_TRACE_LENGTH;
 	info.m_iAmmoType = m_iPrimaryAmmoType;
-	info.m_iTracerFreq = 2;
+	info.m_iTracerFreq = 1;
 
 #if !defined( CLIENT_DLL )
 	// Fire the bullets

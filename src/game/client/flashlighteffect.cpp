@@ -38,14 +38,15 @@ ConVar r_flashlightoffsety( "r_flashlightoffsetup", "-5.0", FCVAR_CHEAT );
 ConVar r_flashlightoffsetz( "r_flashlightoffsetforward", "0.0", FCVAR_CHEAT );
 static ConVar r_flashlightnear( "r_flashlightnear", "4.0", FCVAR_CHEAT );
 static ConVar r_flashlightfar( "r_flashlightfar", "750.0", FCVAR_CHEAT );
-static ConVar r_flashlightconstant( "r_flashlightconstant", "0.0", FCVAR_CHEAT );
+static ConVar r_flashlightconstant( "r_flashlightconstant", "1.0", FCVAR_CHEAT );
 static ConVar r_flashlightlinear( "r_flashlightlinear", "100.0", FCVAR_CHEAT );
-static ConVar r_flashlightquadratic( "r_flashlightquadratic", "0.0", FCVAR_CHEAT );
+static ConVar r_flashlightquadratic( "r_flashlightquadratic", "1.0", FCVAR_CHEAT );
 static ConVar r_flashlightvisualizetrace( "r_flashlightvisualizetrace", "0", FCVAR_CHEAT );
 static ConVar r_flashlightambient( "r_flashlightambient", "0.0", FCVAR_CHEAT );
 static ConVar r_flashlightshadowatten( "r_flashlightshadowatten", "0.35", FCVAR_CHEAT );
 static ConVar r_flashlightladderdist( "r_flashlightladderdist", "40.0", FCVAR_CHEAT );
 static ConVar r_flashlight_topdown( "r_flashlight_topdown", "0" );
+static ConVar r_flashlightAO ( "r_flashlightAO", "0", FCVAR_CHEAT);
 
 static ConVar r_flashlightnearoffsetscale( "r_flashlightnearoffsetscale", "1.0", FCVAR_CHEAT );
 static ConVar r_flashlighttracedistcutoff( "r_flashlighttracedistcutoff", "128" );
@@ -90,6 +91,7 @@ CFlashlightEffect::CFlashlightEffect(int nEntIndex, const char *pszTextureName, 
 	m_bIsOn = false;
 
 	UpdateFlashlightTexture( pszTextureName );
+	//this comented out just to fix missing texture console error
 	m_MuzzleFlashTexture.Init( "effects/muzzleflash_light", TEXTURE_GROUP_OTHER, true );
 }
 
@@ -281,7 +283,6 @@ void CFlashlightEffect::UpdateLight(	int nEntIdx, const Vector &vecPos, const Ve
 {
 	VPROF_BUDGET( __FUNCTION__, VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
 
-
 	if ( r_flashlight_topdown.GetBool() )
 	{
 		UpdateLightTopDown( vecPos, vecForward, vecRight, vecUp );
@@ -320,7 +321,6 @@ void CFlashlightEffect::UpdateLight(	int nEntIdx, const Vector &vecPos, const Ve
 			g_pClientShadowMgr->UpdateFlashlightState( m_FlashlightHandle, state );
 		}
 	}
-	
 	g_pClientShadowMgr->UpdateProjectedTexture( m_FlashlightHandle, true );
 	
 #ifndef NO_TOOLFRAMEWORK
@@ -397,6 +397,7 @@ void CFlashlightEffect::UpdateLight(	int nEntIdx, const Vector &vecPos, const Ve
 		msg->deleteThis();
 	}
 #endif
+
 }
 
 bool CFlashlightEffect::UpdateDefaultFlashlightState( FlashlightState_t& state, const Vector &vecPos, const Vector &vecForward,
@@ -532,6 +533,10 @@ bool CFlashlightEffect::UpdateDefaultFlashlightState( FlashlightState_t& state, 
 	state.m_flShadowSlopeScaleDepthBias = g_pMaterialSystemHardwareConfig->GetShadowSlopeScaleDepthBias();
 	state.m_flShadowDepthBias = g_pMaterialSystemHardwareConfig->GetShadowDepthBias();
 
+	ConVarRef r_flashlightvolumetrics ("r_flashlightvolumetrics");
+	state.m_bVolumetric = r_flashlightvolumetrics.GetBool();
+	state.m_flAmbientOcclusion = r_flashlightAO.GetFloat();
+	
 	return true;
 }
 
@@ -757,6 +762,7 @@ void CHeadlightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, 
 		 return;
 
 	FlashlightState_t state;
+
 	Vector basisX, basisY, basisZ;
 	basisX = vecDir;
 	basisY = vecRight;
@@ -784,7 +790,7 @@ void CHeadlightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, 
 	state.m_pSpotlightTexture = m_FlashlightTexture;
 	state.m_pProjectedMaterial = NULL;
 	state.m_nSpotlightTextureFrame = 0;
-	
+
 	if( GetFlashlightHandle() == CLIENTSHADOW_INVALID_HANDLE )
 	{
 		SetFlashlightHandle( g_pClientShadowMgr->CreateFlashlight( state ) );
@@ -796,4 +802,3 @@ void CHeadlightEffect::UpdateLight( const Vector &vecPos, const Vector &vecDir, 
 	
 	g_pClientShadowMgr->UpdateProjectedTexture( GetFlashlightHandle(), true );
 }
-

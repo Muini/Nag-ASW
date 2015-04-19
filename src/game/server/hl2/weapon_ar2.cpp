@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose:
 //
@@ -7,16 +7,16 @@
 
 #include "cbase.h"
 #include "basecombatweapon.h"
-#include "NPCevent.h"
+#include "npcevent.h"
 #include "basecombatcharacter.h"
-#include "AI_BaseNPC.h"
+#include "ai_basenpc.h"
 #include "player.h"
 #include "weapon_ar2.h"
 #include "grenade_ar2.h"
 #include "gamerules.h"
 #include "game.h"
 #include "in_buttons.h"
-#include "AI_Memory.h"
+#include "ai_memory.h"
 #include "soundent.h"
 #include "hl2_player.h"
 #include "EntityFlame.h"
@@ -27,9 +27,13 @@
 #include "npc_combine.h"
 #include "rumble_shared.h"
 #include "gamestats.h"
+#include "particle_parse.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+extern ConVar    sk_plr_dmg_smg1_grenade;	
+extern ConVar	nag;
 
 ConVar sk_weapon_ar2_alt_fire_radius( "sk_weapon_ar2_alt_fire_radius", "10" );
 ConVar sk_weapon_ar2_alt_fire_duration( "sk_weapon_ar2_alt_fire_duration", "2" );
@@ -108,11 +112,11 @@ IMPLEMENT_ACTTABLE(CWeaponAR2);
 
 CWeaponAR2::CWeaponAR2( )
 {
-	m_fMinRange1	= 65;
-	m_fMaxRange1	= 2048;
+	m_fMinRange1	= 48;
+	m_fMaxRange1	= 4096;
 
-	m_fMinRange2	= 256;
-	m_fMaxRange2	= 1024;
+	m_fMinRange2	= 48;
+	m_fMaxRange2	= 4096;
 
 	m_nShotsFired	= 0;
 	m_nVentPose		= -1;
@@ -124,8 +128,6 @@ void CWeaponAR2::Precache( void )
 {
 	BaseClass::Precache();
 
-	PrecacheEffect( "AR2Impact" );
-	PrecacheEffect( "AR2Tracer" );
 	UTIL_PrecacheOther( "prop_combine_ball" );
 	UTIL_PrecacheOther( "env_entity_dissolver" );
 }
@@ -169,6 +171,7 @@ void CWeaponAR2::ItemPostFrame( void )
 //-----------------------------------------------------------------------------
 Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 {
+	/*
 	if ( m_nShotsFired < 2 )
 		return ACT_VM_PRIMARYATTACK;
 
@@ -179,6 +182,8 @@ Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 		return ACT_VM_RECOIL2;
 
 	return ACT_VM_RECOIL3;
+	*/
+	return ACT_VM_PRIMARYATTACK;
 }
 
 //-----------------------------------------------------------------------------
@@ -188,12 +193,12 @@ Activity CWeaponAR2::GetPrimaryAttackActivity( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2::DoImpactEffect( trace_t &tr, int nDamageType )
 {
-	CEffectData data;
+	/*CEffectData data;
 
 	data.m_vOrigin = tr.endpos + ( tr.plane.normal * 1.0f );
 	data.m_vNormal = tr.plane.normal;
 
-	DispatchEffect( "AR2Impact", data );
+	DispatchEffect( "AR2Impact", data );*/
 
 	BaseClass::DoImpactEffect( tr, nDamageType );
 }
@@ -239,7 +244,7 @@ void CWeaponAR2::DelayedAttack( void )
 						pOwner );
 
 	// View effects
-	color32 white = {255, 255, 255, 64};
+	color32 white = {150, 200, 255, 32};
 	UTIL_ScreenFade( pOwner, white, 0.1, 0, FFADE_IN  );
 	
 	//Disorient the player
@@ -268,32 +273,99 @@ void CWeaponAR2::DelayedAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponAR2::SecondaryAttack( void )
 {
-	if ( m_bShotDelayed )
-		return;
-
-	// Cannot fire underwater
-	if ( GetOwner() && GetOwner()->GetWaterLevel() == 3 )
+	if(!nag.GetBool())
 	{
-		SendWeaponAnim( ACT_VM_DRYFIRE );
-		BaseClass::WeaponSound( EMPTY );
-		m_flNextSecondaryAttack = gpGlobals->curtime + 0.5f;
-		return;
+		if ( m_bShotDelayed )
+			return;
+
+		// Cannot fire underwater
+		if ( GetOwner() && GetOwner()->GetWaterLevel() == 3 )
+		{
+			SendWeaponAnim( ACT_VM_DRYFIRE );
+			BaseClass::WeaponSound( EMPTY );
+			m_flNextSecondaryAttack = gpGlobals->curtime + 0.5f;
+			return;
+		}
+
+		m_bShotDelayed = true;
+		m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
+
+		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+		if( pPlayer )
+		{
+			pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
+		}
+
+		SendWeaponAnim( ACT_VM_FIDGET );
+		WeaponSound( SPECIAL1 );
+
+		m_iSecondaryAttacks++;
+		gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+
+	}else{
+		// Only the player fires this way so we can cast
+		CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+	
+		if ( pPlayer == NULL )
+			return;
+
+		//Must have ammo
+		if ( ( pPlayer->GetAmmoCount( m_iSecondaryAmmoType ) <= 0 ) || ( pPlayer->GetWaterLevel() == 3 ) )
+		{
+			SendWeaponAnim( ACT_VM_DRYFIRE );
+			BaseClass::WeaponSound( EMPTY );
+			m_flNextSecondaryAttack = gpGlobals->curtime + 0.5f;
+			return;
+		}
+
+		if( m_bInReload )
+			m_bInReload = false;
+
+		// MUST call sound before removing a round from the clip of a CMachineGun
+		BaseClass::WeaponSound( WPN_DOUBLE );
+
+		pPlayer->RumbleEffect( RUMBLE_357, 0, RUMBLE_FLAGS_NONE );
+
+		Vector vecSrc = pPlayer->Weapon_ShootPosition();
+		Vector	vecThrow;
+		// Don't autoaim on grenade tosses
+		AngleVectors( pPlayer->EyeAngles() + pPlayer->GetPunchAngle(), &vecThrow );
+		VectorScale( vecThrow, 800.0f, vecThrow );
+	
+		//Create the grenade
+		QAngle angles;
+		VectorAngles( vecThrow, angles );
+		CGrenadeAR2 *pGrenade = (CGrenadeAR2*)Create( "grenade_ar2", vecSrc, angles, pPlayer );
+		pGrenade->SetAbsVelocity( vecThrow );
+
+		pGrenade->SetLocalAngularVelocity( RandomAngle( -400, 400 ) );
+		pGrenade->SetMoveType( MOVETYPE_FLYGRAVITY, MOVECOLLIDE_FLY_BOUNCE ); 
+		pGrenade->SetThrower( GetOwner() );
+		pGrenade->SetDamage( sk_plr_dmg_smg1_grenade.GetFloat() );
+
+		SendWeaponAnim( ACT_VM_SECONDARYATTACK );
+
+		CSoundEnt::InsertSound( SOUND_COMBAT, GetAbsOrigin(), 1000, 0.2, GetOwner(), SOUNDENT_CHANNEL_WEAPON );
+
+		// player "shoot" animation
+		pPlayer->SetAnimation( PLAYER_ATTACK1 );
+
+		// Decrease ammo
+		pPlayer->RemoveAmmo( 1, m_iSecondaryAmmoType );
+
+		// Can shoot again immediately
+		m_flNextPrimaryAttack = gpGlobals->curtime + 0.5f;
+
+		// Can blow up after a short delay (so have time to release mouse button)
+		m_flNextSecondaryAttack = gpGlobals->curtime + 1.0f;
+
+		// Register a muzzleflash for the AI.
+		pPlayer->SetMuzzleFlashTime( gpGlobals->curtime + 0.5 );	
+
+		m_iSecondaryAttacks++;
+		gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
+	
 	}
-
-	m_bShotDelayed = true;
-	m_flNextPrimaryAttack = m_flNextSecondaryAttack = m_flDelayedFire = gpGlobals->curtime + 0.5f;
-
-	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
-	if( pPlayer )
-	{
-		pPlayer->RumbleEffect(RUMBLE_AR2_ALT_FIRE, 0, RUMBLE_FLAG_RESTART );
-	}
-
-	SendWeaponAnim( ACT_VM_FIDGET );
-	WeaponSound( SPECIAL1 );
-
-	m_iSecondaryAttacks++;
-	gamestats->Event_WeaponFired( pPlayer, false, GetClassname() );
 }
 
 //-----------------------------------------------------------------------------
@@ -342,6 +414,11 @@ void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUs
 		vecShootDir = npc->GetActualShootTrajectory( vecShootOrigin );
 	}
 
+	Vector vecShootOrigin2;  //The origin of the shot 
+	QAngle	angShootDir2;    //The angle of the shot
+	GetAttachment( LookupAttachment( "muzzle" ), vecShootOrigin2, angShootDir2 );
+	DispatchParticleEffect( "muzzle_tact_ar2", vecShootOrigin2, angShootDir2);
+
 	WeaponSoundRealtime( SINGLE_NPC );
 
 	CSoundEnt::InsertSound( SOUND_COMBAT|SOUND_CONTEXT_GUNFIRE, pOperator->GetAbsOrigin(), SOUNDENT_VOLUME_MACHINEGUN, 0.2, pOperator, SOUNDENT_CHANNEL_WEAPON, pOperator->GetEnemy() );
@@ -359,67 +436,71 @@ void CWeaponAR2::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool bUs
 //-----------------------------------------------------------------------------
 void CWeaponAR2::FireNPCSecondaryAttack( CBaseCombatCharacter *pOperator, bool bUseWeaponAngles )
 {
-	WeaponSound( WPN_DOUBLE );
+	if(!nag.GetBool())
+	{
+		WeaponSound( WPN_DOUBLE );
 
-	if ( !GetOwner() )
-		return;
+		if ( !GetOwner() )
+			return;
 		
-	CAI_BaseNPC *pNPC = GetOwner()->MyNPCPointer();
-	if ( !pNPC )
-		return;
+		CAI_BaseNPC *pNPC = GetOwner()->MyNPCPointer();
+		if ( !pNPC )
+			return;
 	
-	// Fire!
-	Vector vecSrc;
-	Vector vecAiming;
+		// Fire!
+		Vector vecSrc;
+		Vector vecAiming;
 
-	if ( bUseWeaponAngles )
-	{
-		QAngle	angShootDir;
-		GetAttachment( LookupAttachment( "muzzle" ), vecSrc, angShootDir );
-		AngleVectors( angShootDir, &vecAiming );
-	}
-	else 
-	{
-		vecSrc = pNPC->Weapon_ShootPosition( );
+		if ( bUseWeaponAngles )
+		{
+			QAngle	angShootDir;
+			GetAttachment( LookupAttachment( "muzzle" ), vecSrc, angShootDir );
+			AngleVectors( angShootDir, &vecAiming );
+		}
+		else 
+		{
+			vecSrc = pNPC->Weapon_ShootPosition( );
 		
-		Vector vecTarget;
+			Vector vecTarget;
 
-		CNPC_Combine *pSoldier = dynamic_cast<CNPC_Combine *>( pNPC );
-		if ( pSoldier )
-		{
-			// In the distant misty past, elite soldiers tried to use bank shots.
-			// Therefore, we must ask them specifically what direction they are shooting.
-			vecTarget = pSoldier->GetAltFireTarget();
-		}
-		else
-		{
-			// All other users of the AR2 alt-fire shoot directly at their enemy.
-			if ( !pNPC->GetEnemy() )
-				return;
+			CNPC_Combine *pSoldier = dynamic_cast<CNPC_Combine *>( pNPC );
+			if ( pSoldier )
+			{
+				// In the distant misty past, elite soldiers tried to use bank shots.
+				// Therefore, we must ask them specifically what direction they are shooting.
+				vecTarget = pSoldier->GetAltFireTarget();
+			}
+			else
+			{
+				// All other users of the AR2 alt-fire shoot directly at their enemy.
+				if ( !pNPC->GetEnemy() )
+					return;
 				
-			vecTarget = pNPC->GetEnemy()->BodyTarget( vecSrc );
+				vecTarget = pNPC->GetEnemy()->BodyTarget( vecSrc );
+			}
+
+			vecAiming = vecTarget - vecSrc;
+			VectorNormalize( vecAiming );
 		}
 
-		vecAiming = vecTarget - vecSrc;
-		VectorNormalize( vecAiming );
+		Vector impactPoint = vecSrc + ( vecAiming * MAX_TRACE_LENGTH );
+
+		float flAmmoRatio = 1.0f;
+		float flDuration = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 0.5f, sk_weapon_ar2_alt_fire_duration.GetFloat() );
+		float flRadius = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 4.0f, sk_weapon_ar2_alt_fire_radius.GetFloat() );
+
+		// Fire the bullets
+		Vector vecVelocity = vecAiming * 1000.0f;
+
+		// Fire the combine ball
+		CreateCombineBall(	vecSrc, 
+			vecVelocity, 
+			flRadius, 
+			sk_weapon_ar2_alt_fire_mass.GetFloat(),
+			flDuration,
+			pNPC );
+
 	}
-
-	Vector impactPoint = vecSrc + ( vecAiming * MAX_TRACE_LENGTH );
-
-	float flAmmoRatio = 1.0f;
-	float flDuration = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 0.5f, sk_weapon_ar2_alt_fire_duration.GetFloat() );
-	float flRadius = RemapValClamped( flAmmoRatio, 0.0f, 1.0f, 4.0f, sk_weapon_ar2_alt_fire_radius.GetFloat() );
-
-	// Fire the bullets
-	Vector vecVelocity = vecAiming * 1000.0f;
-
-	// Fire the combine ball
-	CreateCombineBall(	vecSrc, 
-		vecVelocity, 
-		flRadius, 
-		sk_weapon_ar2_alt_fire_mass.GetFloat(),
-		flDuration,
-		pNPC );
 }
 
 //-----------------------------------------------------------------------------
@@ -472,9 +553,10 @@ void CWeaponAR2::Operator_HandleAnimEvent( animevent_t *pEvent, CBaseCombatChara
 //-----------------------------------------------------------------------------
 void CWeaponAR2::AddViewKick( void )
 {
-	#define	EASY_DAMPEN			0.5f
-	#define	MAX_VERTICAL_KICK	8.0f	//Degrees
-	#define	SLIDE_LIMIT			5.0f	//Seconds
+	/*
+	#define	EASY_DAMPEN			10.0f
+	#define	MAX_VERTICAL_KICK	24.0f	//Degrees
+	#define	SLIDE_LIMIT			6.0f	//Seconds
 	
 	//Get the view kick
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
@@ -493,7 +575,60 @@ void CWeaponAR2::AddViewKick( void )
 		flDuration = MIN( flDuration, 0.75f );
 	}
 
+	//Disorient the player
+	QAngle angles = pPlayer->GetLocalAngles();
+
+	angles.x += random->RandomInt( -0.015, 0.015 );
+	angles.y += random->RandomInt( -0.015, 0.015 );
+	angles.z = 0;
+
+	pPlayer->SnapEyeAngles( angles );
+
 	DoMachineGunKick( pPlayer, EASY_DAMPEN, MAX_VERTICAL_KICK, flDuration, SLIDE_LIMIT );
+	*/
+
+	CBasePlayer *pPlayer  = ToBasePlayer( GetOwner() );
+	
+	if ( pPlayer == NULL )
+		return;
+
+	QAngle	viewPunch;
+
+	viewPunch.x = random->RandomFloat( 0.2f, 0.4f );
+	viewPunch.y = random->RandomFloat( -0.4f, 0.4f );
+	viewPunch.z = 0.0f;
+
+	//Disorient the player
+	QAngle angles = pPlayer->GetLocalAngles();
+
+	angles.x += random->RandomInt( -0.01, 0.01 );
+	angles.y += random->RandomInt( -0.01, 0.01 );
+	angles.z = 0;
+
+	pPlayer->SnapEyeAngles( angles );
+
+	//Add it to the view punch
+	pPlayer->ViewPunch( viewPunch );
+}
+
+void CWeaponAR2::PrimaryAttack( void )
+{
+	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
+
+	if (!pPlayer)
+	{
+		return;
+	}
+
+	DispatchParticleEffect( "muzzle_tact_ar2", PATTACH_POINT, pPlayer->GetViewModel(), "muzzle", false);
+
+	if( (m_nShotsFired >= 15) )
+	{
+		 //We shot >5, clean up and start the muzzle smoking effect (like l4d)
+		 DispatchParticleEffect( "weapon_muzzle_smoke", PATTACH_POINT_FOLLOW, pPlayer->GetViewModel(), "muzzle", false);
+	}
+
+	BaseClass::PrimaryAttack();
 }
 
 //-----------------------------------------------------------------------------
@@ -501,11 +636,11 @@ const WeaponProficiencyInfo_t *CWeaponAR2::GetProficiencyValues()
 {
 	static WeaponProficiencyInfo_t proficiencyTable[] =
 	{
-		{ 7.0,		0.75	},
-		{ 5.00,		0.75	},
-		{ 3.0,		0.85	},
-		{ 5.0/3.0,	0.75	},
-		{ 1.00,		1.0		},
+		{ 2.7, 0.7	},
+		{ 2.1, 0.7	},
+		{ 1.6, 0.7	},
+		{ 1.3, 0.7  },
+		{ 1.0, 0.7	},
 	};
 
 	COMPILE_TIME_ASSERT( ARRAYSIZE(proficiencyTable) == WEAPON_PROFICIENCY_PERFECT + 1);

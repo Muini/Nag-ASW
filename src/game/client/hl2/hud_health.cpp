@@ -85,7 +85,7 @@ void CHudHealth::Reset()
 {
 	m_iHealth		= INIT_HEALTH;
 	m_bitsDamage	= 0;
-
+	/*
 	wchar_t *tempString = g_pVGuiLocalize->Find("#Valve_Hud_HEALTH");
 
 	if (tempString)
@@ -95,7 +95,7 @@ void CHudHealth::Reset()
 	else
 	{
 		SetLabelText(L"HEALTH");
-	}
+	}*/
 	SetDisplayValue(m_iHealth);
 }
 

@@ -104,6 +104,7 @@ namespace vgui2
 
 // NOTE: The way these are calculated is that each component == sin (degrees/2)
 #define VECTOR_CONE_PRECALCULATED	vec3_origin
+#define VECTOR_CONE_0DEGREES		Vector( 0.00436, 0.00436, 0.00436 )
 #define VECTOR_CONE_1DEGREES		Vector( 0.00873, 0.00873, 0.00873 )
 #define VECTOR_CONE_2DEGREES		Vector( 0.01745, 0.01745, 0.01745 )
 #define VECTOR_CONE_3DEGREES		Vector( 0.02618, 0.02618, 0.02618 )
@@ -193,6 +194,11 @@ public:
 	float					GetViewModelSequenceDuration();	// Return how long the current view model sequence is.
 	bool					IsViewModelSequenceFinished( void ); // Returns if the viewmodel's current animation is finished
 
+	bool                    m_bLowered;
+	bool                    bLowered;
+	float                   m_fLowered;
+	float                   m_fLoweredReady;
+
 	virtual void			SetViewModel();
 
 	virtual bool			HasWeaponIdleTimeElapsed( void );
@@ -216,6 +222,10 @@ public:
 	virtual void			SetWeaponVisible( bool visible );
 	virtual bool			IsWeaponVisible( void );
 	virtual bool			ReloadOrSwitchWeapons( void );
+	virtual void			OnActiveStateChanged( int iOldState ) { return; }
+	virtual bool			HolsterOnDetach() { return false; }
+	virtual bool			IsHolstered( void );
+	virtual void			Detach() {}
 
 	// Weapon behaviour
 	virtual void			ItemPreFrame( void );					// called each frame by the player PreThink
@@ -226,6 +236,8 @@ public:
 	virtual void			HandleFireOnEmpty();					// Called when they have the attack button down
 																	// but they are out of ammo. The default implementation
 																	// either reloads, switches weapons, or plays an empty sound.
+
+	virtual bool			ShouldBlockPrimaryFire() { return false; }
 #ifdef CLIENT_DLL
 	virtual void			CreateMove( float flInputSampleTime, CUserCmd *pCmd, const QAngle &vecOldViewAngles ) {}
 #endif
@@ -238,6 +250,7 @@ public:
 	virtual void			AbortReload( void );
 	virtual bool			Reload( void );
 	bool					DefaultReload( int iClipSize1, int iClipSize2, int iActivity );
+	bool					ReloadsSingly( void ) const;
 
 	// Weapon firing
 	virtual void			PrimaryAttack( void );						// do "+ATTACK"
@@ -498,6 +511,17 @@ public:
 	// Weapon firing
 	CNetworkVar( float, m_flNextPrimaryAttack );						// soonest time ItemPostFrame will call PrimaryAttack
 	CNetworkVar( float, m_flNextSecondaryAttack );						// soonest time ItemPostFrame will call SecondaryAttack
+	// Weapon state
+	bool					m_bFiringWholeClip;		// Are we in the middle of firing the whole clip;
+
+	bool					m_bInChanging;			// Are we in the middle of a changing;
+	float					m_fChangingTime;
+	virtual bool			ChangingWeps( CBaseCombatWeapon *pSwitchingTo );
+	CBaseCombatWeapon		*wepsChangingTo;
+	CBaseCombatWeapon		*GetNextWeps( void ) { return wepsChangingTo; }
+	CBaseCombatWeapon		*SetNextWeps( CBaseCombatWeapon *pSwitchingTo ) { wepsChangingTo = pSwitchingTo; return wepsChangingTo; }
+
+	bool					IsChanging( void ){ return m_bInChanging; }
 
 	// Weapon art
 	CNetworkVar( int, m_iViewModelIndex );

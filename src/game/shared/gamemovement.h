@@ -19,9 +19,9 @@
 #define CTEXTURESMAX		512			// max number of textures loaded
 #define CBTEXTURENAMEMAX	13			// only load first n chars of name
 
-#define GAMEMOVEMENT_DUCK_TIME				1000		// ms
-#define GAMEMOVEMENT_JUMP_TIME				510			// ms approx - based on the 21 unit height jump
-#define GAMEMOVEMENT_JUMP_HEIGHT			21.0f		// units
+#define GAMEMOVEMENT_DUCK_TIME				400		// ms
+#define GAMEMOVEMENT_JUMP_TIME				800			// ms approx - based on the 21 unit height jump
+#define GAMEMOVEMENT_JUMP_HEIGHT			32.0f		// units
 #define GAMEMOVEMENT_TIME_TO_UNDUCK_MSECS			( TIME_TO_UNDUCK_MSECS )		// ms
 #define GAMEMOVEMENT_TIME_TO_UNDUCK_MSECS_INV		( GAMEMOVEMENT_DUCK_TIME - GAMEMOVEMENT_TIME_TO_UNDUCK_MSECS )
 
@@ -204,6 +204,10 @@ protected:
 
 	void ResetGetWaterContentsForPointCache();
 	int GetWaterContentsForPointCached( const Vector &point, int slot );
+
+	bool doubleSaut;
+	bool climbOnce;
+	float wallJumpForce;
 
 	// Ducking
 	virtual void	Duck( void );
